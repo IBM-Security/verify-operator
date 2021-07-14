@@ -1,0 +1,13 @@
+apiVersion: ibm.com/v1alpha1
+kind: VerifyTenant
+metadata:
+  name: verifytenant-sample
+spec:
+  # Add fields here
+  supertenant: test.ibm.com
+  tenant: lowkey.ibm.com
+  version: 1
+  contact: lgleeson@au1.ibm.com
+  company: IBM
+  secret: test_verify
+  integration: CP4S
