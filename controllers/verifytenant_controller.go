@@ -110,7 +110,7 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			url := fmt.Sprintf("https://%s/tms/v1.0/integration/extendeddata/%s/%s", cr.Spec.SuperTenant, cr.Spec.Integration, cr.Spec.TennantUUID)
+			url := fmt.Sprintf("https://%s/tms/v1.0/integration/extendeddata/%s/%s", instance.Spec.SuperTenant, instance.Spec.Integration, instance.Status.TenantUUID)
 			response, err := r.makeRequest(instance, url, tenantParams.Encode(), jsonParams)
 			if err != nil {
 				return reconcile.Result{}, err
@@ -127,8 +127,8 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	} else { //Otherwise create the Verify tenant and store the generated client id and secret
 		jsonParams := []byte(`[{"key":"oauthClient",
 				"value": "{\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]`)
-		url := fmt.Sprintf("https://%s/tms/v1.0/integration/tenant/%s", cr.Spec.SuperTenant, cr.Spec.Integration)
-		response, err := r.makeRequest(instance, url, "POST", tenantParams.Encode(), jsonParams)
+		url := fmt.Sprintf("https://%s/tms/v1.0/integration/tenant/%s", instance.Spec.SuperTenant, instance.Spec.Integration)
+		response, err := r.makeRequest(instance, url, tenantParams.Encode(), jsonParams)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
