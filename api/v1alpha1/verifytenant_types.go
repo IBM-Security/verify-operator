@@ -47,11 +47,17 @@ type VerifyTenantSpec struct {
 
 	// The name of the secret to be created. Defaults to verify-tenant bu is user modifiable.
 	// +kubebuilder:default:="verify-tenant"
-	Secret string `json:"secret"`
+	Secret string `json:"target_secret"`
 
 	// The integration type to use. Default is CP4s
 	// +kubeuilder:default:="CP4S"
-	Integraion string `json:"integration"`
+	Integration string `json:"integration"`
+
+	// The OIDC client id with permission to provision new Tenants from the Super Tenatn
+	ClientId string `json:"client_id"`
+
+	// The OIDC client secrent associated with the client id
+	ClientSecret string `json:"client_secret"`
 }
 
 // VerifyTenantStatus defines the observed state of VerifyTenant
@@ -61,6 +67,9 @@ type VerifyTenantStatus struct {
 
 	// Version of client secret deployed
 	Version int `json:"version,omitempty"`
+
+	// Length of time that current access token is valid for
+	AccessTokenExpiry int64 `json:"access_token_expiry,omitempty"`
 }
 
 //+kubebuilder:object:root=true

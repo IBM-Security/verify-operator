@@ -32,6 +32,8 @@ import (
 
 	ibmv1alpha1 "github.com/IBM-Security/verify-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
+
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -71,6 +73,21 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
+	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
+		Scheme: scheme.Scheme,
+	})
+	Expect(err).ToNot(HaveOccurred())
+
+	err = (&VerifyTenantReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).ToNot(HaveOccurred())
+
+	go func() {
+		err = k8sManager.Start(ctrl.SetupSignalHandler())
+		Expect(err).ToNot(HaveOccurred())
+	}()
 }, 60)
 
 var _ = AfterSuite(func() {

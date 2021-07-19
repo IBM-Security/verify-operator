@@ -20,9 +20,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -50,6 +53,15 @@ type VerifyCreateResponse struct {
 	tenant        string
 	client_id     string
 	client_secret string
+}
+
+type VerifyOIDCGrantResponse struct {
+	access_token string
+	scope        string
+	grant_id     string
+	id_token     string
+	token_type   string
+	expires_in   int
 }
 
 var _log = logf.Log.WithName("verify_tenant_controller")
@@ -98,8 +110,7 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			response, err := r.makeRequest(instance.Spec.SuperTenant, "PUT", instance.Spec.Integration,
-							tenantParams.Encode(), jsonParams)
+			response, err := r.makeRequest(instance, "PUT", tenantParams.Encode(), jsonParams)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -115,8 +126,7 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	} else { //Otherwise create the Verify tenant and store the generated client id and secret
 		jsonParams := []byte(`[{"key":"oauthClient",
 				"value": "{\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]`)
-		response, err := r.makeRequest(instance.Spec.SuperTenant, "POST", instance.Spec.Integration, 
-							tenantParams.Encode(), jsonParams)
+		response, err := r.makeRequest(instance, "POST", tenantParams.Encode(), jsonParams)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -148,14 +158,14 @@ func (r *VerifyTenantReconciler) regenerateSecretJson(cr *ibmv1alpha1.VerifyTena
 		return nil, errors.NewNotFound(corev1.Resource("secret"), "Client id not found")
 	}
 	//Can now create the JSON to regenerate the client secret
-	jsonData := []byte(`[{"key": "client_id", "value": "` + clientId + `"},
-		{"key": "oauthClient", "value": "{\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]`)
+	jsonData := []byte(`[{"key": "oauthClient", "value": "{\"clientId\":\"` + clientId + `\",\"entitlements\":
+				[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]`)
 	return jsonData, nil
 }
 
-func (r *VerifyTenantReconciler) makeRequest(domain string, method string, integration string, queryParams string, 
-            jsonParams []byte) (*http.Response, error) {
-    uri := fmt.Sprinf("https://%s/tms/v1.0/integration/tenant/%s", domain, integration)
+func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, method string, queryParams string,
+	jsonParams []byte) (*http.Response, error) {
+	uri := fmt.Sprintf("https://%s/tms/v1.0/integration/tenant/%s", cr.Spec.SuperTenant, cr.Spec.Integration)
 	request, err := http.NewRequest(method, uri, nil)
 	if err != nil {
 		return nil, err
@@ -166,8 +176,13 @@ func (r *VerifyTenantReconciler) makeRequest(domain string, method string, integ
 	if jsonParams != nil {
 		request.Body = ioutil.NopCloser(bytes.NewBuffer(jsonParams))
 	}
-	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
-	request.Header.Set("Accept", "application/json")
+	request.Header.Add("Content-Type", "application/json; charset=UTF-8")
+	request.Header.Add("Accept", "application/json")
+	access_token, err := r.getAccessToken(cr)
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Add("Authorization", fmt.Sprintf("Bearer: %s", access_token))
 	client := &http.Client{}
 	response, err := client.Do(request)
 	if err != nil {
@@ -176,6 +191,33 @@ func (r *VerifyTenantReconciler) makeRequest(domain string, method string, integ
 		defer response.Body.Close()
 		return response, nil
 	}
+}
+
+func (r *VerifyTenantReconciler) getAccessToken(cr *ibmv1alpha1.VerifyTenant) (string, error) {
+	data := url.Values{}
+	data.Set("grant_type", "client_credentials")
+	data.Set("client_id", cr.Spec.ClientId)
+	data.Set("client_secret", cr.Spec.ClientSecret)
+	data.Set("scope", "openid")
+
+	client := &http.Client{}
+	request, err := http.NewRequest("POST", fmt.Sprintf("https://%s/v1.0/endpoint/default/token", cr.Spec.SuperTenant),
+		strings.NewReader(data.Encode()))
+	if err != nil {
+		return "", err
+	}
+	request.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Add("Content-Length", strconv.Itoa(len(data.Encode())))
+	response, err := client.Do(request)
+	if err != nil {
+		return "", err
+	}
+	jsonData := &VerifyOIDCGrantResponse{}
+	json.NewDecoder(response.Body).Decode(&jsonData)
+
+	//TODO set expiry in status to minimise access token generation
+
+	return jsonData.access_token, nil
 }
 
 func (r *VerifyTenantReconciler) createSecret(response http.Response, cr *ibmv1alpha1.VerifyTenant) *corev1.Secret {

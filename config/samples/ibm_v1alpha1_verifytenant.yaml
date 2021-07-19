@@ -4,10 +4,12 @@ metadata:
   name: verifytenant-sample
 spec:
   # Add fields here
-  supertenant: test.ibm.com
-  tenant: lowkey.ibm.com
+  supertenant: idaas.ite1.idng.ibmcloudsecurity.com
+  tenant: verifyoperatortest
+  client_id: abdc1234
+  client_secret: abcd1234
   version: 1
   contact: lgleeson@au1.ibm.com
   company: IBM
-  secret: test_verify
+  target_secret: verify-tenant
   integration: CP4S

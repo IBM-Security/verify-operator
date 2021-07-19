@@ -29,7 +29,7 @@ import (
 )
 
 // log is for logging in this package.
-var verifytenantlog = logf.Log.WithName("verifytenant-resource")
+var _verifytenantlog = logf.Log.WithName("verifytenant-resource")
 
 func (r *VerifyTenant) SetupWebhookWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewWebhookManagedBy(mgr).
@@ -46,7 +46,7 @@ var _ webhook.Validator = &VerifyTenant{}
 
 // ValidateCreate implements webhook.Validator so a webhook will be registered for the type
 func (r *VerifyTenant) ValidateCreate() error {
-	verifytenantlog.Info("validate create", "name", r.Name)
+	_verifytenantlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
 	err := r.validateDomain(r.Spec.SuperTenant)
@@ -66,7 +66,10 @@ func (r *VerifyTenant) ValidateCreate() error {
 
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *VerifyTenant) ValidateUpdate(old runtime.Object) error {
-	verifytenantlog.Info("validate update", "name", r.Name)
+	_verifytenantlog.Info("validate update", "name", r.Name)
+
+	//_verifytenantlog.Info(fmt.Sprintf("unmarshalled data: %s", string(old)))
+	//_verifytenantlog.Info(fmt.Sprintf("unmarshalled data: %s", string(old.UnstructuredContent())))
 
 	// TODO(user): fill in your validation logic upon object update.
 	err := r.validateDomain(r.Spec.SuperTenant)
@@ -86,7 +89,7 @@ func (r *VerifyTenant) ValidateUpdate(old runtime.Object) error {
 
 // ValidateDelete implements webhook.Validator so a webhook will be registered for the type
 func (r *VerifyTenant) ValidateDelete() error {
-	verifytenantlog.Info("validate delete", "name", r.Name)
+	_verifytenantlog.Info("validate delete", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object deletion.
 	return nil
