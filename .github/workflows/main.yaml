@@ -43,6 +43,7 @@ jobs:
       - name: Build Operator
         id: build-operator
         run: |
+          echo "${HOME}" >> $GITHUB_PATH
           #make manifests
           #make generate
           #make test
