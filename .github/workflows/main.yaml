@@ -46,7 +46,7 @@ jobs:
           echo "${HOME}" >> $GITHUB_PATH
           #make manifests
           #make generate
-          #make test
-          make bundle
+          make test
+          #make bundle
           make docker-build
 
