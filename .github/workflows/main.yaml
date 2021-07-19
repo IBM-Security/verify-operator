@@ -14,27 +14,31 @@ jobs:
         id: fetch-operator-sdk
         run: |
           SDK_EXISTS=true
-          if [ ! -x ~/operator-sdk ]; then
+          if [ ! -x $HOME/.local/bin/operator-sdk ]; then
             SDK_EXISTS=false
           fi
           if [ "$SDK_EXISTS" == "true" ]; then
-            SDK_VERSION=$( ~/operator-sdk version | sed -e 's/.*version: "\(v[0-9.]*\)".*/\1/' )
+            echo "$HOME/.local/bin" >> $GITHUB_PATH
+            SDK_VERSION=$( operator-sdk version | sed -e 's/.*version: "\(v[0-9.]*\)".*/\1/' )
           fi
           RELEASE_VERSION=$( curl -ksS https://api.github.com/repos/operator-framework/operator-sdk/releases/latest | 
                   jq -r '.tag_name' )
           if [ "$SDK_EXISTS" == "false" ] || [ "$SDK_VERSION" != "$RELEASE_VERSION" ]; then
+            mkdir -p $HOME/.local/bin
             echo "Fetching new operator-sdk: $RELEASE_VERSION"
             RELEASE_URL=$( curl -ksS https://api.github.com/repos/operator-framework/operator-sdk/releases/latest | 
                   jq -r '.assets[] | select(.name=="operator-sdk_linux_amd64") | .browser_download_url' )
-            curl -ksSL $RELEASE_URL -o ${HOME}/operator-sdk
-            chmod +x ${HOME}/operator-sdk
+            curl -ksSL $RELEASE_URL -o ${HOME}/.local/bin/operator-sdk
+            chmod +x ${HOME}/.local/bin/operator-sdk
           else
             echo "Using cached operator-sdk $SDK_VERSION"
           fi
       - name: Restore GO cache
         uses: actions/cache@v2
         with:
-          path: ~/go/pkg/mod
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
           key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{ runner.os }}-go-
@@ -43,7 +47,7 @@ jobs:
       - name: Build Operator
         id: build-operator
         run: |
-          echo "${HOME}" >> $GITHUB_PATH
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
           #make manifests
           #make generate
           make test

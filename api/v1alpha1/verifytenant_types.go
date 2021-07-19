@@ -65,6 +65,9 @@ type VerifyTenantStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// Tennant UUID is recorded in the status to allow for the rollover of client_secret when requested
+	TenantUUID string `json:"tennant_uuid,omitempty"`
+
 	// Version of client secret deployed
 	Version int `json:"version,omitempty"`
 

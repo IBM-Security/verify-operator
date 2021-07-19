@@ -110,7 +110,8 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			response, err := r.makeRequest(instance, "PUT", tenantParams.Encode(), jsonParams)
+			url := fmt.Sprintf("https://%s/tms/v1.0/integration/extendeddata/%s/%s", cr.Spec.SuperTenant, cr.Spec.Integration, cr.Spec.TennantUUID)
+			response, err := r.makeRequest(instance, url, tenantParams.Encode(), jsonParams)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -126,7 +127,8 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	} else { //Otherwise create the Verify tenant and store the generated client id and secret
 		jsonParams := []byte(`[{"key":"oauthClient",
 				"value": "{\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]`)
-		response, err := r.makeRequest(instance, "POST", tenantParams.Encode(), jsonParams)
+		url := fmt.Sprintf("https://%s/tms/v1.0/integration/tenant/%s", cr.Spec.SuperTenant, cr.Spec.Integration)
+		response, err := r.makeRequest(instance, url, "POST", tenantParams.Encode(), jsonParams)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -163,10 +165,9 @@ func (r *VerifyTenantReconciler) regenerateSecretJson(cr *ibmv1alpha1.VerifyTena
 	return jsonData, nil
 }
 
-func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, method string, queryParams string,
+func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, url sring, queryParams string,
 	jsonParams []byte) (*http.Response, error) {
-	uri := fmt.Sprintf("https://%s/tms/v1.0/integration/tenant/%s", cr.Spec.SuperTenant, cr.Spec.Integration)
-	request, err := http.NewRequest(method, uri, nil)
+	request, err := http.NewRequest("POST", url, nil)
 	if err != nil {
 		return nil, err
 	}
