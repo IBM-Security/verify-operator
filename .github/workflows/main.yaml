@@ -8,7 +8,7 @@ jobs:
         id: cache-operator-sdk
         uses: actions/cache@v2
         with:
-          path: ~/operator-sdk
+          path: ~/.local/bin/operator-sdk
           key: operator-sdk
       - name: Fetch Operator SDK
         id: fetch-operator-sdk

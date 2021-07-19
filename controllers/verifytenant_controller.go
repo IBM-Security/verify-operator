@@ -165,7 +165,7 @@ func (r *VerifyTenantReconciler) regenerateSecretJson(cr *ibmv1alpha1.VerifyTena
 	return jsonData, nil
 }
 
-func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, url sring, queryParams string,
+func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, url string, queryParams string,
 	jsonParams []byte) (*http.Response, error) {
 	request, err := http.NewRequest("POST", url, nil)
 	if err != nil {
