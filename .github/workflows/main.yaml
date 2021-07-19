@@ -16,10 +16,12 @@ jobs:
           SDK_EXISTS=true
           if [ ! -x $HOME/.local/bin/operator-sdk ]; then
             SDK_EXISTS=false
+            echo "SDK file not found"
           fi
           if [ "$SDK_EXISTS" == "true" ]; then
             echo "$HOME/.local/bin" >> $GITHUB_PATH
             SDK_VERSION=$( operator-sdk version | sed -e 's/.*version: "\(v[0-9.]*\)".*/\1/' )
+              echo "SDK Version found: $SDK_VERSION"
           fi
           RELEASE_VERSION=$( curl -ksS https://api.github.com/repos/operator-framework/operator-sdk/releases/latest | 
                   jq -r '.tag_name' )
