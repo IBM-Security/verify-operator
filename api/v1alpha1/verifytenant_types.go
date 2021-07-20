@@ -53,7 +53,7 @@ type VerifyTenantSpec struct {
 	// +kubeuilder:default:="CP4S"
 	Integration string `json:"integration"`
 
-	// The OIDC client id with permission to provision new Tenants from the Super Tenatn
+	// The OIDC client id with permission to provision new Tenants from the Super Tenant
 	ClientId string `json:"client_id"`
 
 	// The OIDC client secrent associated with the client id

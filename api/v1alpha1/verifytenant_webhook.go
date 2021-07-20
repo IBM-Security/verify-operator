@@ -24,8 +24,10 @@ import (
 
 	"errors"
 	"fmt"
+	"net"
 	"net/mail"
-	"net/url"
+	"strconv"
+	"strings"
 )
 
 // log is for logging in this package.
@@ -49,17 +51,20 @@ func (r *VerifyTenant) ValidateCreate() error {
 	_verifytenantlog.Info("validate create", "name", r.Name)
 
 	// TODO(user): fill in your validation logic upon object creation.
-	err := r.validateDomain(r.Spec.SuperTenant)
+	err := r.validateSuperTenant(r.Spec.SuperTenant)
 	if err != nil {
 		return err
 	}
-	err = r.validateDomain(r.Spec.Tenant)
+	err = r.validateTenantPrefix(r.Spec.Tenant)
 	if err != nil {
 		return err
 	}
-	err = r.validateDomain(r.Spec.Contact)
+	err = r.validateEmail(r.Spec.Contact)
 	if err != nil {
 		return err
+	}
+	if r.Spec.Version < 0 {
+		return errors.New(fmt.Sprintf("Invalid version: %d, must be >= 0", r.Spec.Version))
 	}
 	return nil
 }
@@ -72,17 +77,20 @@ func (r *VerifyTenant) ValidateUpdate(old runtime.Object) error {
 	//_verifytenantlog.Info(fmt.Sprintf("unmarshalled data: %s", string(old.UnstructuredContent())))
 
 	// TODO(user): fill in your validation logic upon object update.
-	err := r.validateDomain(r.Spec.SuperTenant)
+	err := r.validateSuperTenant(r.Spec.SuperTenant)
 	if err != nil {
 		return err
 	}
-	err = r.validateDomain(r.Spec.Tenant)
+	err = r.validateTenantPrefix(r.Spec.Tenant)
 	if err != nil {
 		return err
 	}
-	err = r.validateDomain(r.Spec.Contact)
+	err = r.validateEmail(r.Spec.Contact)
 	if err != nil {
 		return err
+	}
+	if r.Spec.Version < 0 || r.Spec.Version < r.Status.Version {
+		return errors.New(fmt.Sprintf("Invalid version: %d, version must be incremented", r.Spec.Version))
 	}
 	return nil
 }
@@ -95,12 +103,52 @@ func (r *VerifyTenant) ValidateDelete() error {
 	return nil
 }
 
-//Validate that string represents a valid domain name
-func (r *VerifyTenant) validateDomain(domain string) error {
+func (r *VerifyTenant) validateSuperTenant(superTenant string) error {
+	//If ip address is specified check its valid
+	parts := strings.SplitN(superTenant, ":", 2)
+	domain := parts[0]
+	if len(parts) == 2 {
+		port := parts[1]
+		if _, err := strconv.Atoi(port); err != nil {
+			return errors.New(fmt.Sprintf("Invalid port specified %s", port))
+		}
+	}
+	if domain[0] >= '0' && domain[0] <= '9' {
+		//Must be ip adress
+		if net.ParseIP(domain) == nil {
+			return errors.New(fmt.Sprintf("Invalid IP address %s", domain))
+		}
+	} else {
+		//Must be a domain; use relaxed rules here and only check for invalid characters
+		for i := 0; i < len(domain); i++ {
+			char := domain[i]
+			if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '-' || char == '.' || char >= 'A' && char <= 'Z') {
+				return errors.New(fmt.Sprintf("Invalid hostname specified: %v", domain))
+			}
+		}
+	}
+	return nil
+}
 
-	u, err := url.ParseRequestURI(domain)
-	if err != nil || u.Scheme == "" || u.Host == "" {
-		return errors.New(fmt.Sprintf("Invalid hostname specified: %v", domain))
+func (r *VerifyTenant) validateTenantPrefix(tenant string) error {
+	//Cannot start with a digit
+	if tenant[0] <= '0' && tenant[0] >= '9' {
+		return errors.New(fmt.Sprintf("Invalid tenant name specified: %s", tenant))
+	}
+
+	//Check for invalid characters; Verify doc says must match regular expression "^[a-z0-9]+(-[a-z0-9]+)*$"
+	strlen := len(tenant) - 1
+	for i := 0; i < len(tenant); i++ {
+		char := tenant[i]
+		if (i == 0 || i == strlen) &&
+			!(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char >= 'A' && char <= 'Z') {
+			//First and last character must be alphanumeric
+			return errors.New(fmt.Sprintf("Invalid char %c at offset %d in requested tenant name %s", char, i,
+				tenant))
+		} else if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '-' || char >= 'A' && char <= 'Z') {
+			//Otherwise must be alphanumeric or '-'
+			return errors.New(fmt.Sprintf("Invalid char %c in requested tenant name %s", char, tenant))
+		}
 	}
 	return nil
 }

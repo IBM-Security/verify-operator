@@ -1,0 +1,112 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: verifytenants.ibm.com
+spec:
+  group: ibm.com
+  names:
+    kind: VerifyTenant
+    listKind: VerifyTenantList
+    plural: verifytenants
+    singular: verifytenant
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: VerifyTenant is the Schema for the verifytenants API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: VerifyTenantSpec defines the desired state of VerifyTenant
+            properties:
+              client_id:
+                description: The OIDC client id with permission to provision new Tenants
+                  from the Super Tenant
+                type: string
+              client_secret:
+                description: The OIDC client secrent associated with the client id
+                type: string
+              company_name:
+                description: The comany contact for the newly created tenant
+                type: string
+              contact_email:
+                description: The contact email address for the newly created tenant.
+                  This will be used for service updates and outages.
+                type: string
+              integration:
+                description: The integration type to use. Default is CP4s
+                type: string
+              supertenant:
+                description: The Super Tenant which will be used to create your new
+                  IBM Verify Tenant
+                type: string
+              target_secret:
+                default: verify-tenant
+                description: The name of the secret to be created. Defaults to verify-tenant
+                  bu is user modifiable.
+                type: string
+              tenant:
+                description: Tenant is the protocol + domain for the Verify supertenant
+                  where your tenant will be created
+                type: string
+              version:
+                default: 0
+                description: The version of the generated OIDC client. This is the
+                  only parameter which can be edited once deployed. When incremented
+                  the operator will regenrate the client secret and update the Kubernetes
+                  Secret.
+                type: integer
+            required:
+            - client_id
+            - client_secret
+            - company_name
+            - contact_email
+            - integration
+            - supertenant
+            - target_secret
+            - tenant
+            - version
+            type: object
+          status:
+            description: VerifyTenantStatus defines the observed state of VerifyTenant
+            properties:
+              access_token_expiry:
+                description: Length of time that current access token is valid for
+                format: int64
+                type: integer
+              tennant_uuid:
+                description: Tennant UUID is recorded in the status to allow for the
+                  rollover of client_secret when requested
+                type: string
+              version:
+                description: Version of client secret deployed
+                type: integer
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
