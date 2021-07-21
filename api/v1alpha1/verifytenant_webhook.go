@@ -63,7 +63,7 @@ func (r *VerifyTenant) ValidateCreate() error {
 	if err != nil {
 		return err
 	}
-	if r.Spec.Version < 0 {
+	if r.Spec.Version < 1 {
 		return errors.New(fmt.Sprintf("Invalid version: %d, must be >= 0", r.Spec.Version))
 	}
 	return nil
@@ -89,7 +89,7 @@ func (r *VerifyTenant) ValidateUpdate(old runtime.Object) error {
 	if err != nil {
 		return err
 	}
-	if r.Spec.Version < 0 || r.Spec.Version < r.Status.Version {
+	if r.Spec.Version < 1 || r.Spec.Version < r.Status.Version {
 		return errors.New(fmt.Sprintf("Invalid version: %d, version must be incremented", r.Spec.Version))
 	}
 	return nil
@@ -123,7 +123,7 @@ func (r *VerifyTenant) validateSuperTenant(superTenant string) error {
 		for i := 0; i < len(domain); i++ {
 			char := domain[i]
 			if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '-' || char == '.' || char >= 'A' && char <= 'Z') {
-				return errors.New(fmt.Sprintf("Invalid hostname specified: %v", domain))
+				return errors.New(fmt.Sprintf("Invalid character %c in hostname: %v", char, domain))
 			}
 		}
 	}

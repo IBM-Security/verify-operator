@@ -14,11 +14,12 @@ jobs:
         id: fetch-operator-sdk
         run: |
           SDK_EXISTS=true
-          if [ ! -x $HOME/.local/bin/operator-sdk ]; then
+          if ! [ -f $HOME/.local/bin/operator-sdk ]; then
             SDK_EXISTS=false
             echo "SDK file not found"
           fi
           if [ "$SDK_EXISTS" == "true" ]; then
+            chmod +x $HOME/.local/bin/operator-sdk
             echo "$HOME/.local/bin" >> $GITHUB_PATH
             SDK_VERSION=$( operator-sdk version | sed -e 's/.*version: "\(v[0-9.]*\)".*/\1/' )
               echo "SDK Version found: $SDK_VERSION"
@@ -50,6 +51,7 @@ jobs:
         id: build-operator
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+          chmod +x $HOME/.local/bin/operator-sdk
           #make manifests
           #make generate
           make test

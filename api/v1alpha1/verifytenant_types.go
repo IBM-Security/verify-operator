@@ -42,7 +42,7 @@ type VerifyTenantSpec struct {
 
 	// The version of the generated OIDC client. This is the only parameter which can be edited once deployed. When
 	// incremented the operator will regenrate the client secret and update the Kubernetes Secret.
-	// +kubebuilder:default:=0
+	// +kubebuilder:default:=1
 	Version int `json:"version"`
 
 	// The name of the secret to be created. Defaults to verify-tenant bu is user modifiable.
@@ -69,10 +69,11 @@ type VerifyTenantStatus struct {
 	TenantUUID string `json:"tennant_uuid,omitempty"`
 
 	// Version of client secret deployed
-	Version int `json:"version,omitempty"`
+	// +kubebuilder:default:=0
+	Version int `json:"version"`
 
 	// Length of time that current access token is valid for
-	AccessTokenExpiry int64 `json:"access_token_expiry,omitempty"`
+	AccessTokenExpiry int64 `json:"access_token_expiry"`
 }
 
 //+kubebuilder:object:root=true

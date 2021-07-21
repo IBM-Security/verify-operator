@@ -67,7 +67,7 @@ spec:
                   where your tenant will be created
                 type: string
               version:
-                default: 0
+                default: 1
                 description: The version of the generated OIDC client. This is the
                   only parameter which can be edited once deployed. When incremented
                   the operator will regenrate the client secret and update the Kubernetes
@@ -96,8 +96,12 @@ spec:
                   rollover of client_secret when requested
                 type: string
               version:
+                default: 0
                 description: Version of client secret deployed
                 type: integer
+            required:
+            - access_token_expiry
+            - version
             type: object
         type: object
     served: true

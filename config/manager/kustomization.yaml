@@ -13,5 +13,5 @@ kind: Kustomization
 images:
 - name: controller
   newName: docker.io/lgleeson/lowkey
-  newTag: operator
+  newTag: latest
 namespace: verify
