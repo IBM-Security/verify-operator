@@ -67,4 +67,3 @@ jobs:
             export IMG=${ARTIFACTORY_SERVER}/verify-operator:latest
           fi
           make docker-build docker-push IMG=$IMG
-
