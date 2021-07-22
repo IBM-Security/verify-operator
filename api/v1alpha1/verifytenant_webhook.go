@@ -72,23 +72,28 @@ func (r *VerifyTenant) ValidateCreate() error {
 // ValidateUpdate implements webhook.Validator so a webhook will be registered for the type
 func (r *VerifyTenant) ValidateUpdate(old runtime.Object) error {
 	_verifytenantlog.Info("validate update", "name", r.Name)
+	oldCr := old.(*VerifyTenant)
 
-	//_verifytenantlog.Info(fmt.Sprintf("unmarshalled data: %s", string(old)))
-	//_verifytenantlog.Info(fmt.Sprintf("unmarshalled data: %s", string(old.UnstructuredContent())))
-
-	// TODO(user): fill in your validation logic upon object update.
-	err := r.validateSuperTenant(r.Spec.SuperTenant)
-	if err != nil {
-		return err
+	// Validated on create so just make sure they have not changed
+	if r.Spec.SuperTenant != oldCr.Spec.SuperTenant {
+		return errors.New("Editing the SuperTenant attribute is not allowed")
 	}
-	err = r.validateTenantPrefix(r.Spec.Tenant)
-	if err != nil {
-		return err
+	if r.Spec.Tenant != oldCr.Spec.Tenant {
+		return errors.New("Editing the Tenant attribute is not allowed")
 	}
-	err = r.validateEmail(r.Spec.Contact)
-	if err != nil {
-		return err
+	if r.Spec.Company != oldCr.Spec.Company {
+		return errors.New("Editing the Company attribute is not allowed")
 	}
+	if r.Spec.Contact != oldCr.Spec.Contact {
+		return errors.New("Editing the Contact attribute is not allowed")
+	}
+	if r.Spec.Secret != oldCr.Spec.Secret {
+		return errors.New("Editing the Secret attribute is not allowed")
+	}
+	if r.Spec.Integration != oldCr.Spec.Integration {
+		return errors.New("Editing the Integration attribute is not allowed")
+	}
+	// Cannot decrement the version
 	if r.Spec.Version < 1 || r.Spec.Version < r.Status.Version {
 		return errors.New(fmt.Sprintf("Invalid version: %d, version must be incremented", r.Spec.Version))
 	}

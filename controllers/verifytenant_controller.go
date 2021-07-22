@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -30,7 +31,7 @@ import (
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -101,7 +102,7 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	instance := &ibmv1alpha1.VerifyTenant{}
 	err := r.Client.Get(context.TODO(), req.NamespacedName, instance)
 	if err != nil {
-		if errors.IsNotFound(err) {
+		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
 		return reconcile.Result{}, err
@@ -114,12 +115,11 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	tenantParams.Set("wait", "true")
 	tenantParams.Set("isTrial", "false")
 
-	_log.Info(fmt.Sprintf("Version: %d", instance.Status.Version))
-
+	_log.Info(fmt.Sprintf("start version: %d", instance.Status.Version))
 	//Check if r.Status contains a version
 	if instance.Status.Version > 0 { //If it does then we need to check if the secret needs to be updated
-		_log.Info("Status.Version exists")
 		if instance.Status.Version != instance.Spec.Version {
+			_log.Info("Updating OIDC client")
 			url := fmt.Sprintf("https://%s/tms/v1.0/integration/extendeddata/%s/%s", instance.Spec.SuperTenant, instance.Spec.Integration, instance.Status.TenantUUID)
 			_, err := r.makeRequest(instance, url, "")
 			if err != nil {
@@ -133,13 +133,15 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			_log.Info("Client secret regenrated")
-
+			instance.Status.Version = instance.Spec.Version
+			r.Client.Status().Update(context.TODO(), instance)
+			_log.Info("Client secret regenerated")
+			_log.Info(fmt.Sprintf("version: %d", instance.Status.Version))
 		} else {
 			_log.Info("Version is correct, nothing to do")
 		}
 	} else { //Otherwise create the Verify tenant and store the generated client id and secret
-		_log.Info("Status.Version does not exist")
+		_log.Info("Creating OIDC client")
 		url := fmt.Sprintf("https://%s/tms/v1.0/integration/tenant/%s", instance.Spec.SuperTenant, instance.Spec.Integration)
 		body, err := r.makeRequest(instance, url, tenantParams.Encode())
 		if err != nil {
@@ -150,13 +152,16 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err != nil {
 			return reconcile.Result{}, err
 		}
+		instance.Status.Version = instance.Spec.Version
+		r.Client.Status().Update(context.TODO(), instance)
+		_log.Info("Client secret created")
+		_log.Info(fmt.Sprintf("version: %d", instance.Status.Version))
 	}
 	_log.Info("Reconcile VerifyTenant exit")
 	return ctrl.Result{}, nil
 }
 
 func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, url string, queryParams string) ([]byte, error) {
-	_log.Info(fmt.Sprintf("URL: %s", url))
 	jsonParams := []byte(`[{"key":"oauthClient",
 			"value": "{\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]`)
 	request, err := http.NewRequest("POST", url, ioutil.NopCloser(bytes.NewBuffer(jsonParams)))
@@ -177,6 +182,8 @@ func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, url s
 	response, err := client.Do(request)
 	if err != nil {
 		return nil, err
+	} else if response.StatusCode != 200 {
+		return nil, errors.New(fmt.Sprintf("Failed to create a new tenant with name \"%s\"", cr.Spec.Tenant))
 	} else {
 		body, _ := ioutil.ReadAll(response.Body)
 		return body, nil
@@ -221,8 +228,11 @@ func (r *VerifyTenantReconciler) getAccessToken(cr *ibmv1alpha1.VerifyTenant) (s
 }
 
 func (r *VerifyTenantReconciler) getTenantConfig(cr *ibmv1alpha1.VerifyTenant) (*VerifyTenantJson, error) {
-	url := fmt.Sprintf("https://%s/tms/v1.0/integration/tenants/%s/%s", cr.Spec.SuperTenant, cr.Spec.Integration, cr.Status.TenantUUID)
-	request, err := http.NewRequest("GET", url, nil)
+	uri := fmt.Sprintf("https://%s/tms/v1.0/integration/tenants/%s", cr.Spec.SuperTenant, cr.Spec.Integration)
+	request, err := http.NewRequest("GET", uri, nil)
+	tenantParams := url.Values{}
+	tenantParams.Set("tenantId", cr.Status.TenantUUID)
+	request.URL.RawQuery = tenantParams.Encode()
 	request.Header.Add("Content-Type", "application/json; charset=UTF-8")
 	request.Header.Add("Accept", "application/json")
 	access_token, err := r.getAccessToken(cr)
@@ -232,9 +242,13 @@ func (r *VerifyTenantReconciler) getTenantConfig(cr *ibmv1alpha1.VerifyTenant) (
 	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", access_token))
 	client := &http.Client{}
 	response, err := client.Do(request)
-	var tenantJson VerifyTenantJson
+	_log.Info(fmt.Sprintf("Status code: %d", response.StatusCode))
+	tenantJson := make([]VerifyTenantJson, 0)
 	json.NewDecoder(response.Body).Decode(&tenantJson)
-	return &tenantJson, nil
+	if len(tenantJson) != 1 {
+		return nil, errors.New(fmt.Sprintf("Got multiple tenants for tenant uuid %s", cr.Status.TenantUUID))
+	}
+	return &tenantJson[0], nil
 }
 
 func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson, oidcClient *VerifyTenantOIDCClient) error {
@@ -250,6 +264,8 @@ func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson, oid
 }
 
 func (r *VerifyTenantReconciler) updateSecret(cr *ibmv1alpha1.VerifyTenant) (*corev1.Secret, error) {
+	//TODO regenerate the client secret
+
 	// Get the Secret
 	foundSecret := &corev1.Secret{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.Secret, Namespace: cr.Namespace}, foundSecret)
@@ -284,6 +300,9 @@ func (r *VerifyTenantReconciler) createSecret(body []byte, cr *ibmv1alpha1.Verif
 	var jsonData VerifyTenantJson
 	json.Unmarshal(body, &jsonData)
 	r.getOIDCClientData(&jsonData, &verifyOIDCClient)
+	if jsonData.Id == "" {
+		return nil, errors.New("Tenant Id not found in HTTP response")
+	}
 	cr.Status.TenantUUID = jsonData.Id
 
 	return &corev1.Secret{

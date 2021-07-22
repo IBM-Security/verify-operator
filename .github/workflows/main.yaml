@@ -47,14 +47,24 @@ jobs:
             ${{ runner.os }}-go-
       - name: Checkout
         uses: actions/checkout@v2
+      - name: Login to Artifactory
+        if: ${{ github.ref != 'refs/head/stable' }}
+        uses: docker/login-action@v1
+        with:
+          registry: ${{ secrets.ARTIFACTORY_SERVER  }}
+          username: ${{ secrets.ARTIFACTORY_USER    }}
+          password: ${{ secrets.ARTIFACTORY_API_KEY }}
       - name: Build Operator
         id: build-operator
+        env:
+          ARTIFACTORY_SERVER: ${{ secrets.ARTIFACTORY_SERVER }}
         run: |
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           chmod +x $HOME/.local/bin/operator-sdk
-          #make manifests
-          #make generate
-          make test
-          #make bundle
-          make docker-build
+          if [ "$GITHUB_REF" = "refs/heads/stable" ] ; then
+            export IMG=ibmcom/verify-operator:latest
+          else
+            export IMG=${ARTIFACTORY_SERVER}/verify-operator:latest
+          fi
+          make docker-build docker-push IMG=$IMG
 
