@@ -1,4 +1,4 @@
-domain: ibm.com
+domain: ibmcom
 layout:
 - go.kubebuilder.io/v3
 plugins:
@@ -11,7 +11,7 @@ resources:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: ibm.com
+  domain: ibmcom
   group: ibm
   kind: VerifyTenant
   path: github.com/IBM-Security/verify-operator/api/v1alpha1

@@ -54,6 +54,12 @@ jobs:
           registry: ${{ secrets.ARTIFACTORY_SERVER  }}
           username: ${{ secrets.ARTIFACTORY_USER    }}
           password: ${{ secrets.ARTIFACTORY_API_KEY }}
+      - name: Login to docker.io
+        if: ${{ github.ref == 'refs/head/stable' }}
+        uses: docker/login-action@v1
+        with:
+          username: ${{ secrets.DOCKERIO_USER    }}
+          password: ${{ secrets.DOCKERIO_API_KEY }}
       - name: Build Operator
         id: build-operator
         env:
@@ -62,8 +68,11 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           chmod +x $HOME/.local/bin/operator-sdk
           if [ "$GITHUB_REF" = "refs/heads/stable" ] ; then
-            export IMG=ibmcom/verify-operator:latest
+            export IMAGE_TAG_BASE=ibmcom/verify-operator:latest
+            echo "Building stable with tag: $IMAGE_TAG_BASE"
           else
-            export IMG=${ARTIFACTORY_SERVER}/verify-operator:latest
+            export IMAGE_TAG_BASE=${ARTIFACTORY_SERVER}/verify-operator:latest
+            echo "Building branch with tag: $IMAGE_TAG_BASE"
           fi
-          make docker-build docker-push IMG=$IMG
+          make docker-build docker-push IMAGE_TAG_BASE=$IMAGE_TAG_BASE
+          make bundle bunde-build bundle-push IMAGE_TAG_BASE=$IMAGE_TAG_BASE

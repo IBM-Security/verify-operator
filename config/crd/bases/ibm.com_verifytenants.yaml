@@ -41,48 +41,48 @@ spec:
                   from the Super Tenant
                 type: string
               client_secret:
-                description: The OIDC client secrent associated with the client id
+                description: The OIDC client secret associated with the client id
                 type: string
               company_name:
-                description: The comany contact for the newly created tenant
+                description: The comany contact for the created tenant
                 type: string
               contact_email:
-                description: The contact email address for the newly created tenant.
-                  This will be used for service updates and outages.
+                description: The contact email address for the created tenant. This
+                  will be used for service updates and outages.
                 type: string
               integration:
-                description: The integration type to use. Default is CP4s
+                description: The integration type to use. Default is CP4S
                 type: string
-              supertenant:
-                description: The Super Tenant which will be used to create your new
-                  IBM Verify Tenant
-                type: string
-              target_secret:
-                default: verify-tenant
-                description: The name of the secret to be created. Defaults to verify-tenant
-                  bu is user modifiable.
-                type: string
-              tenant:
-                description: Tenant is the protocol + domain for the Verify supertenant
-                  where your tenant will be created
-                type: string
-              version:
+              oidc_client_version:
                 default: 1
                 description: The version of the generated OIDC client. This is the
                   only parameter which can be edited once deployed. When incremented
-                  the operator will regenrate the client secret and update the Kubernetes
-                  Secret.
+                  the operator will regenerate the client secret and update the Kubernetes
+                  Secret specified by "target_secret".
                 type: integer
+              supertenant:
+                description: The Super Tenant which will be used to create your new
+                  IBM Verify Tenant. This shuld only include the domain of the Super
+                  Tenant.
+                type: string
+              target_secret:
+                default: verify-tenant
+                description: The name of the secret to be created.
+                type: string
+              tenant:
+                description: Tenant is the prefix of the IBM Verify which will be
+                  created. This must be an alphanumeric string.
+                type: string
             required:
             - client_id
             - client_secret
             - company_name
             - contact_email
             - integration
+            - oidc_client_version
             - supertenant
             - target_secret
             - tenant
-            - version
             type: object
           status:
             description: VerifyTenantStatus defines the observed state of VerifyTenant

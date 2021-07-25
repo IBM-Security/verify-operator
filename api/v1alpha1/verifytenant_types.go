@@ -28,35 +28,37 @@ type VerifyTenantSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// The Super Tenant which will be used to create your new IBM Verify Tenant
+	// The Super Tenant which will be used to create your new IBM Verify Tenant. This shuld only include the domain
+	// of the Super Tenant.
 	SuperTenant string `json:"supertenant"`
 
-	// Tenant is the protocol + domain for the Verify supertenant where your tenant will be created
+	// Tenant is the prefix of the IBM Verify which will be created. This must be an alphanumeric string.
 	Tenant string `json:"tenant"`
 
-	// The comany contact for the newly created tenant
+	// The comany contact for the created tenant
 	Company string `json:"company_name"`
 
-	// The contact email address for the newly created tenant. This will be used for service updates and outages.
+	// The contact email address for the created tenant. This will be used for service updates and outages.
 	Contact string `json:"contact_email"`
 
 	// The version of the generated OIDC client. This is the only parameter which can be edited once deployed. When
-	// incremented the operator will regenrate the client secret and update the Kubernetes Secret.
+	// incremented the operator will regenerate the client secret and update the Kubernetes Secret specified by 
+	// "target_secret".
 	// +kubebuilder:default:=1
-	Version int `json:"version"`
+	Version int `json:"oidc_client_version"`
 
-	// The name of the secret to be created. Defaults to verify-tenant bu is user modifiable.
+	// The name of the secret to be created.
 	// +kubebuilder:default:="verify-tenant"
 	Secret string `json:"target_secret"`
 
-	// The integration type to use. Default is CP4s
+	// The integration type to use. Default is CP4S
 	// +kubeuilder:default:="CP4S"
 	Integration string `json:"integration"`
 
 	// The OIDC client id with permission to provision new Tenants from the Super Tenant
 	ClientId string `json:"client_id"`
 
-	// The OIDC client secrent associated with the client id
+	// The OIDC client secret associated with the client id
 	ClientSecret string `json:"client_secret"`
 }
 
