@@ -68,10 +68,10 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
           chmod +x $HOME/.local/bin/operator-sdk
           if [ "$GITHUB_REF" = "refs/heads/stable" ] ; then
-            export IMAGE_TAG_BASE=ibmcom/verify-operator:latest
+            export IMAGE_TAG_BASE=ibmcom/verify-operator
             echo "Building stable with tag: $IMAGE_TAG_BASE"
           else
-            export IMAGE_TAG_BASE=${ARTIFACTORY_SERVER}/verify-operator:latest
+            export IMAGE_TAG_BASE=${ARTIFACTORY_SERVER}/verify-operator
             echo "Building branch with tag: $IMAGE_TAG_BASE"
           fi
           make docker-build docker-push IMAGE_TAG_BASE=$IMAGE_TAG_BASE

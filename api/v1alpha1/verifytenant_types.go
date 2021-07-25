@@ -42,7 +42,7 @@ type VerifyTenantSpec struct {
 	Contact string `json:"contact_email"`
 
 	// The version of the generated OIDC client. This is the only parameter which can be edited once deployed. When
-	// incremented the operator will regenerate the client secret and update the Kubernetes Secret specified by 
+	// incremented the operator will regenerate the client secret and update the Kubernetes Secret specified by
 	// "target_secret".
 	// +kubebuilder:default:=1
 	Version int `json:"oidc_client_version"`
