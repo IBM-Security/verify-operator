@@ -75,4 +75,4 @@ jobs:
             echo "Building branch with tag: $IMAGE_TAG_BASE"
           fi
           make docker-build docker-push IMAGE_TAG_BASE=$IMAGE_TAG_BASE
-          make bundle bunde-build bundle-push IMAGE_TAG_BASE=$IMAGE_TAG_BASE
+          make bundle bundle-build bundle-push IMAGE_TAG_BASE=$IMAGE_TAG_BASE

@@ -32,13 +32,15 @@ type VerifyTenantSpec struct {
 	// of the Super Tenant.
 	SuperTenant string `json:"supertenant"`
 
-	// Tenant is the prefix of the IBM Verify which will be created. This must be an alphanumeric string.
+	// Tenant is the prefix of the IBM Verify tenant domain which will be created. This must be an alphanumeric string.
 	Tenant string `json:"tenant"`
 
 	// The comany contact for the created tenant
+	// +kubebuilder:validation:Type:="string"
 	Company string `json:"company_name"`
 
 	// The contact email address for the created tenant. This will be used for service updates and outages.
+	// +kubebuilder:validation:Type:="string"
 	Contact string `json:"contact_email"`
 
 	// The version of the generated OIDC client. This is the only parameter which can be edited once deployed. When

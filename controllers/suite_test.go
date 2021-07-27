@@ -17,6 +17,8 @@ limitations under the License.
 package controllers
 
 import (
+	"errors"
+	"net/http"
 	"path/filepath"
 	"testing"
 
@@ -42,6 +44,22 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
+
+type MockClient struct {
+	DoFunc func(req *http.Request) (*http.Response, error)
+}
+
+var DoFunc func(req *http.Request) (*http.Response, error)
+
+func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
+	return DoFunc(req)
+}
+
+var mockClient = MockClient{
+	DoFunc: func(req *http.Request) (*http.Response, error) {
+		return nil, errors.New("TODO")
+	},
+}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -79,8 +97,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).ToNot(HaveOccurred())
 
 	err = (&VerifyTenantReconciler{
-		Client: k8sManager.GetClient(),
-		Scheme: k8sManager.GetScheme(),
+		Client:     k8sManager.GetClient(),
+		Scheme:     k8sManager.GetScheme(),
+		HttpClient: HTTPClient(&mockClient),
 	}).SetupWithManager(k8sManager)
 	Expect(err).ToNot(HaveOccurred())
 

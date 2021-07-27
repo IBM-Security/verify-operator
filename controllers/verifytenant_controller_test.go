@@ -62,6 +62,31 @@ var _ = Describe("Verify Tenant controller", func() {
 				return true
 			}, timeout, interval).Should(BeTrue())
 			Expect(found.Spec.Version).Should(Equal(1))
+
+			updatedTenantSpec := &ibmv1alpha1.VerifyTenantSpec{
+				SuperTenant:  "test.ibm.com",
+				Tenant:       "verify-operator-test",
+				Company:      "IBM",
+				Contact:      "isamdev@au1.ibm.com",
+				Version:      2,
+				Secret:       "verify-tenant",
+				Integration:  "CP4S",
+				ClientId:     "ABCDabcd1234",
+				ClientSecret: "ABCDabcd1234",
+			}
+
+			found.Spec = *updatedTenantSpec
+
+			Expect(k8sClient.Update(context.Background(), found)).Should(Succeed())
+			foundUpdated := &ibmv1alpha1.VerifyTenant{}
+			Eventually(func() bool {
+				err := k8sClient.Get(ctx, key, foundUpdated)
+				if err != nil {
+					return false
+				}
+				return true
+			}, timeout, interval).Should(BeTrue())
+			Expect(foundUpdated.Spec.Version).Should(Equal(2))
 		})
 	})
 })

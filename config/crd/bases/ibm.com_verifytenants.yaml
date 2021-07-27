@@ -70,8 +70,8 @@ spec:
                 description: The name of the secret to be created.
                 type: string
               tenant:
-                description: Tenant is the prefix of the IBM Verify which will be
-                  created. This must be an alphanumeric string.
+                description: Tenant is the prefix of the IBM Verify tenant domain
+                  which will be created. This must be an alphanumeric string.
                 type: string
             required:
             - client_id

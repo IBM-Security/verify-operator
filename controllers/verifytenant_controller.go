@@ -44,10 +44,15 @@ import (
 	ibmv1alpha1 "github.com/IBM-Security/verify-operator/api/v1alpha1"
 )
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // VerifyTenantReconciler reconciles a VerifyTenant object
 type VerifyTenantReconciler struct {
 	client.Client
-	Scheme *runtime.Scheme
+	Scheme     *runtime.Scheme
+	HttpClient HTTPClient
 }
 
 // JSON Response from Verify for tenant creation; only care about the tenant domain name and the
@@ -115,7 +120,6 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	tenantParams.Set("wait", "true")
 	tenantParams.Set("isTrial", "false")
 
-	_log.Info(fmt.Sprintf("start version: %d", instance.Status.Version))
 	//Check if r.Status contains a version
 	if instance.Status.Version > 0 { //If it does then we need to check if the secret needs to be updated
 		if instance.Status.Version != instance.Spec.Version {
@@ -136,7 +140,6 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			instance.Status.Version = instance.Spec.Version
 			r.Client.Status().Update(context.TODO(), instance)
 			_log.Info("Client secret regenerated")
-			_log.Info(fmt.Sprintf("version: %d", instance.Status.Version))
 		} else {
 			_log.Info("Version is correct, nothing to do")
 		}
@@ -155,7 +158,6 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		instance.Status.Version = instance.Spec.Version
 		r.Client.Status().Update(context.TODO(), instance)
 		_log.Info("Client secret created")
-		_log.Info(fmt.Sprintf("version: %d", instance.Status.Version))
 	}
 	_log.Info("Reconcile VerifyTenant exit")
 	return ctrl.Result{}, nil
@@ -178,8 +180,7 @@ func (r *VerifyTenantReconciler) makeRequest(cr *ibmv1alpha1.VerifyTenant, url s
 		return nil, err
 	}
 	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", access_token))
-	client := &http.Client{}
-	response, err := client.Do(request)
+	response, err := r.HttpClient.Do(request)
 	if err != nil {
 		return nil, err
 	} else if response.StatusCode != 200 {
@@ -242,7 +243,6 @@ func (r *VerifyTenantReconciler) getTenantConfig(cr *ibmv1alpha1.VerifyTenant) (
 	request.Header.Add("Authorization", fmt.Sprintf("Bearer %s", access_token))
 	client := &http.Client{}
 	response, err := client.Do(request)
-	_log.Info(fmt.Sprintf("Status code: %d", response.StatusCode))
 	tenantJson := make([]VerifyTenantJson, 0)
 	json.NewDecoder(response.Body).Decode(&tenantJson)
 	if len(tenantJson) != 1 {
@@ -264,8 +264,6 @@ func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson, oid
 }
 
 func (r *VerifyTenantReconciler) updateSecret(cr *ibmv1alpha1.VerifyTenant) (*corev1.Secret, error) {
-	//TODO regenerate the client secret
-
 	// Get the Secret
 	foundSecret := &corev1.Secret{}
 	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.Secret, Namespace: cr.Namespace}, foundSecret)

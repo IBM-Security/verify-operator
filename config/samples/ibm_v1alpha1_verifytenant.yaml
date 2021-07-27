@@ -9,7 +9,7 @@ spec:
   client_id: abdc1234
   client_secret: abcd1234
   oidc_client_version: 1
-  contact: lgleeson@au1.ibm.com
-  company: IBM
+  contact_email: lgleeson@au1.ibm.com
+  company_name: IBM
   target_secret: verify-tenant
   integration: CP4S
