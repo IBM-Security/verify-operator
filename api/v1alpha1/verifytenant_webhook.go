@@ -63,6 +63,10 @@ func (r *VerifyTenant) ValidateCreate() error {
 	if err != nil {
 		return err
 	}
+	err = r.validateNamespaces(r.Spec.Namespaces)
+	if err != nil {
+		return err
+	}
 	if r.Spec.Version < 1 {
 		return errors.New(fmt.Sprintf("Invalid version: %d, must be >= 0", r.Spec.Version))
 	}
@@ -161,4 +165,18 @@ func (r *VerifyTenant) validateTenantPrefix(tenant string) error {
 func (r *VerifyTenant) validateEmail(address string) error {
 	_, err := mail.ParseAddress(address)
 	return err
+}
+
+func (r *VerifyTenant) validateNamespaces(namespaces []string) error {
+	if namespaces == nil {
+		return errors.New("Must specify at least one namespace")
+	}
+	for _, namespace := range namespaces {
+		for _, char := range namespace {
+			if !(char >= 'a' && char <= 'z' || char >= '0' && char <= '9' || char == '-' || char >= 'A' && char <= 'Z') {
+				return errors.New(fmt.Sprintf("Character %c in namespace %s is invalid", char, namespace))
+			}
+		}
+	}
+	return nil
 }

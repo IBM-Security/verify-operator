@@ -37,15 +37,16 @@ var _ = Describe("Verify Tenant Webhook", func() {
 				contact       string
 				version       int
 				secret        string
+				namespaces    []string
 				integration   string
 				client_id     string
 				client_secret string
 				error_string  string
 			}{
-				{"http://invalid.super.tenant", "tenant", "MBI", "a@b.c", 1, "secret", "CP4S", "abcdABCD134", "abcdABCD1234", "TODO"},
-				{"super.tenant", "invalid/tenant", "IBM", "a@b.c", 1, "secret", "CP4S", "string", "string", "TODO"},
-				{"super.tenant", "tenant", "IBM", "invalid.email", 1, "secret", "CP4S", "string", "string", "TODO"},
-				{"super.tenant", "tenant", "IBM", "a@b.c", -1, "secret", "CP4S", "string", "string", "TODO"},
+				{"http://invalid.super.tenant", "tenant", "MBI", "a@b.c", 1, "secret", []string{"default"}, "CP4S", "abcdABCD134", "abcdABCD1234", "TODO"},
+				{"super.tenant", "invalid/tenant", "IBM", "a@b.c", 1, "secret", []string{"default"}, "CP4S", "string", "string", "TODO"},
+				{"super.tenant", "tenant", "IBM", "invalid.email", 1, "secret", []string{"default"}, "CP4S", "string", "string", "TODO"},
+				{"super.tenant", "tenant", "IBM", "a@b.c", -1, "secret", []string{"default"}, "CP4S", "string", "string", "TODO"},
 			}
 			for _, test := range tests {
 				defer func() {
@@ -69,6 +70,7 @@ var _ = Describe("Verify Tenant Webhook", func() {
 						Contact:      test.contact,
 						Version:      test.version,
 						Secret:       test.secret,
+						Namespaces:   test.namespaces,
 						Integration:  test.integration,
 						ClientId:     test.client_id,
 						ClientSecret: test.client_secret,

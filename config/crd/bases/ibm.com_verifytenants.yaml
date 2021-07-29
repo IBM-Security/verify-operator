@@ -65,6 +65,11 @@ spec:
                   IBM Verify Tenant. This shuld only include the domain of the Super
                   Tenant.
                 type: string
+              target_namespaces:
+                description: The namespaces to create/manage the secret in.
+                items:
+                  type: string
+                type: array
               target_secret:
                 default: verify-tenant
                 description: The name of the secret to be created.
@@ -81,6 +86,7 @@ spec:
             - integration
             - oidc_client_version
             - supertenant
+            - target_namespaces
             - target_secret
             - tenant
             type: object
@@ -99,9 +105,16 @@ spec:
                 default: 0
                 description: Version of client secret deployed
                 type: integer
+              watched_namespaces:
+                description: The list of namespaces which currently have a Tenant
+                  secet in them.
+                items:
+                  type: string
+                type: array
             required:
             - access_token_expiry
             - version
+            - watched_namespaces
             type: object
         type: object
     served: true

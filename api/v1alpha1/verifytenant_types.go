@@ -53,6 +53,10 @@ type VerifyTenantSpec struct {
 	// +kubebuilder:default:="verify-tenant"
 	Secret string `json:"target_secret"`
 
+	// The namespaces to create/manage the secret in.
+	// +kubebuilder:validation.MinItems:=1
+	Namespaces []string `json:"target_namespaces"`
+
 	// The integration type to use. Default is CP4S
 	// +kubeuilder:default:="CP4S"
 	Integration string `json:"integration"`
@@ -75,6 +79,9 @@ type VerifyTenantStatus struct {
 	// Version of client secret deployed
 	// +kubebuilder:default:=0
 	Version int `json:"version"`
+
+	// The list of namespaces which currently have a Tenant secet in them.
+	WatchedNamespaces []string `json:"watched_namespaces"`
 
 	// Length of time that current access token is valid for
 	AccessTokenExpiry int64 `json:"access_token_expiry"`

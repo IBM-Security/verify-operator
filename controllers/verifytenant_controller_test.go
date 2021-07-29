@@ -18,7 +18,7 @@ var _ = Describe("Verify Tenant controller", func() {
 		JobName               = "test-job"
 
 		timeout  = time.Second * 30
-		duration = time.Second * 30
+		duration = time.Second * 60
 		interval = time.Millisecond * 250
 	)
 
@@ -44,6 +44,7 @@ var _ = Describe("Verify Tenant controller", func() {
 					Contact:      "isamdev@au1.ibm.com",
 					Version:      1,
 					Secret:       "verify-tenant",
+					Namespaces:   []string{"default"},
 					Integration:  "CP4S",
 					ClientId:     "ABCDabcd1234",
 					ClientSecret: "ABCDabcd1234",
@@ -63,6 +64,15 @@ var _ = Describe("Verify Tenant controller", func() {
 			}, timeout, interval).Should(BeTrue())
 			Expect(found.Spec.Version).Should(Equal(1))
 
+			By("By checking the Status.Version field to see when the reconciler has executed")
+			Consistently(func() (int, error) {
+				err := k8sClient.Get(ctx, key, found)
+				if err != nil {
+					return -1, err
+				}
+				return found.Spec.Version, nil
+			}, duration, interval).Should(Equal(verifyTenant.Spec.Version))
+
 			updatedTenantSpec := &ibmv1alpha1.VerifyTenantSpec{
 				SuperTenant:  "test.ibm.com",
 				Tenant:       "verify-operator-test",
@@ -70,6 +80,7 @@ var _ = Describe("Verify Tenant controller", func() {
 				Contact:      "isamdev@au1.ibm.com",
 				Version:      2,
 				Secret:       "verify-tenant",
+				Namespaces:   []string{"default"},
 				Integration:  "CP4S",
 				ClientId:     "ABCDabcd1234",
 				ClientSecret: "ABCDabcd1234",

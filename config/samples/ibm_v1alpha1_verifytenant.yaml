@@ -12,4 +12,7 @@ spec:
   contact_email: lgleeson@au1.ibm.com
   company_name: IBM
   target_secret: verify-tenant
+  target_namespaces:
+    - "verify"
+    - "default"
   integration: CP4S

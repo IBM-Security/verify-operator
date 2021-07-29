@@ -129,11 +129,15 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			secret, err := r.updateSecret(instance)
+			tenantJson, err := r.getTenantConfig(instance)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			err = r.Client.Update(context.TODO(), secret)
+			oidcClient, err := r.getOIDCClientData(tenantJson)
+			if err != nil {
+				return reconcile.Result{}, err
+			}
+			err = r.createOrUpdateSecrets(oidcClient, tenantJson, instance)
 			if err != nil {
 				return reconcile.Result{}, err
 			}
@@ -150,8 +154,17 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if err != nil {
 			return reconcile.Result{}, err
 		}
-		secret, err := r.createSecret(body, instance)
-		err = r.Client.Create(context.TODO(), secret)
+		var tenantData VerifyTenantJson
+		json.Unmarshal(body, &tenantData)
+		oidcClient, err := r.getOIDCClientData(&tenantData)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		if tenantData.Id == "" {
+			return reconcile.Result{}, errors.New("Tenant Id not found in HTTP response")
+		}
+		instance.Status.TenantUUID = tenantData.Id
+		err = r.createOrUpdateSecrets(oidcClient, &tenantData, instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -251,8 +264,9 @@ func (r *VerifyTenantReconciler) getTenantConfig(cr *ibmv1alpha1.VerifyTenant) (
 	return &tenantJson[0], nil
 }
 
-func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson, oidcClient *VerifyTenantOIDCClient) error {
+func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson) (*VerifyTenantOIDCClient, error) {
 	//Find the client id and client secret in the extended data
+	var oidcClient VerifyTenantOIDCClient
 	var err error
 	for i := 0; i < len(tenant.ExtendedData); i++ {
 		if tenant.ExtendedData[i].Key == "oauthClient" {
@@ -260,25 +274,62 @@ func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson, oid
 			break
 		}
 	}
-	return err
+	return &oidcClient, err
 }
 
-func (r *VerifyTenantReconciler) updateSecret(cr *ibmv1alpha1.VerifyTenant) (*corev1.Secret, error) {
-	// Get the Secret
-	foundSecret := &corev1.Secret{}
-	err := r.Client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.Secret, Namespace: cr.Namespace}, foundSecret)
-	if err != nil {
-		return nil, err
+func (r *VerifyTenantReconciler) createOrUpdateSecrets(oidcClient *VerifyTenantOIDCClient, tenantJson *VerifyTenantJson, cr *ibmv1alpha1.VerifyTenant) error {
+	//TODO
+	//Check the cr.Status.Namespaces; if any have been removed make sure the secret is removed
+	// This is O^2 time but list should be small
+	for _, secretNamespace := range cr.Status.WatchedNamespaces {
+		found := false
+		for _, newNamespace := range cr.Spec.Namespaces {
+			if secretNamespace == newNamespace {
+				found = true
+				break
+			}
+		}
+		if found == false {
+			expiredSecret := &corev1.Secret{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: secretNamespace,
+					Name:      cr.Spec.Secret,
+				},
+			}
+			// Not much we can do if it can't be deleted
+			_ = r.Client.Delete(context.TODO(), expiredSecret)
+		}
 	}
-	tenantJson, err := r.getTenantConfig(cr)
-	if err != nil {
-		return nil, err
+
+	for _, secretNamespace := range cr.Spec.Namespaces {
+		// Get the Secret
+		foundSecret := &corev1.Secret{}
+		err := r.Client.Get(context.TODO(), types.NamespacedName{Name: cr.Spec.Secret, Namespace: secretNamespace}, foundSecret)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				//Create it
+				err = r.createSecret(tenantJson, oidcClient, secretNamespace, cr)
+				if err != nil {
+					return err
+				}
+				continue
+			} else {
+				return err
+			}
+		}
+		//Exists so update it
+		if err = r.updateSecret(tenantJson, oidcClient, foundSecret); err != nil {
+			return err
+		}
 	}
-	var oidcClient VerifyTenantOIDCClient
-	err = r.getOIDCClientData(tenantJson, &oidcClient)
-	if err != nil {
-		return nil, err
-	}
+	// At this point the spec and status should be the same list
+	cr.Status.WatchedNamespaces = cr.Spec.Namespaces
+	return nil
+}
+
+func (r *VerifyTenantReconciler) updateSecret(tenantJson *VerifyTenantJson, oidcClient *VerifyTenantOIDCClient,
+	foundSecret *corev1.Secret) error {
+	var err error
 	newData := map[string]string{
 		"tenant":        tenantJson.PrimaryUrl,
 		"client_id":     oidcClient.ClientId,
@@ -286,36 +337,35 @@ func (r *VerifyTenantReconciler) updateSecret(cr *ibmv1alpha1.VerifyTenant) (*co
 	}
 	if !reflect.DeepEqual(newData, foundSecret.StringData) {
 		foundSecret.StringData = newData
+		err = r.Client.Update(context.TODO(), foundSecret)
 	}
-	return foundSecret, nil
+	return err
 }
 
-func (r *VerifyTenantReconciler) createSecret(body []byte, cr *ibmv1alpha1.VerifyTenant) (*corev1.Secret, error) {
+func (r *VerifyTenantReconciler) createSecret(tenantJson *VerifyTenantJson, oidcClient *VerifyTenantOIDCClient,
+	namespace string, cr *ibmv1alpha1.VerifyTenant) error {
 	labels := map[string]string{
 		"app": cr.Name,
 	}
-	var verifyOIDCClient VerifyTenantOIDCClient
-	var jsonData VerifyTenantJson
-	json.Unmarshal(body, &jsonData)
-	r.getOIDCClientData(&jsonData, &verifyOIDCClient)
-	if jsonData.Id == "" {
-		return nil, errors.New("Tenant Id not found in HTTP response")
-	}
-	cr.Status.TenantUUID = jsonData.Id
 
-	return &corev1.Secret{
+	secret := corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Spec.Secret,
-			Namespace: cr.Namespace,
+			Namespace: namespace,
 			Labels:    labels,
 		},
 		Type: "generic",
 		StringData: map[string]string{
-			"tenant":        jsonData.PrimaryUrl,
-			"client_id":     verifyOIDCClient.ClientId,
-			"client_secret": verifyOIDCClient.ClientSecret,
+			"tenant":        tenantJson.PrimaryUrl,
+			"client_id":     oidcClient.ClientId,
+			"client_secret": oidcClient.ClientSecret,
 		},
-	}, nil
+	}
+	err := r.Client.Create(context.TODO(), &secret)
+	if err != nil {
+		return err
+	}
+	return ctrl.SetControllerReference(cr, &secret, r.Scheme)
 }
 
 // SetupWithManager sets up the controller with the Manager.

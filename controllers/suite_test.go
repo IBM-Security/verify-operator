@@ -17,7 +17,9 @@ limitations under the License.
 package controllers
 
 import (
-	"errors"
+	"bytes"
+	//"errors"
+	"io/ioutil"
 	"net/http"
 	"path/filepath"
 	"testing"
@@ -49,17 +51,20 @@ type MockClient struct {
 	DoFunc func(req *http.Request) (*http.Response, error)
 }
 
-var DoFunc func(req *http.Request) (*http.Response, error)
+var DoFunc = func(req *http.Request) (*http.Response, error) {
+	jsonStr := `{"id":"abcd1234","extraData":[{"key":"oidcClient",
+	"value":"{\"clientId\":\"abcd1234\",\"clientSecret\":\"abcd1234\",\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]}`
+	return &http.Response{
+		Body:       ioutil.NopCloser(bytes.NewBufferString(jsonStr)),
+		StatusCode: 200,
+	}, nil
+}
 
 func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
 	return DoFunc(req)
 }
 
-var mockClient = MockClient{
-	DoFunc: func(req *http.Request) (*http.Response, error) {
-		return nil, errors.New("TODO")
-	},
-}
+var mockClient = MockClient{}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
