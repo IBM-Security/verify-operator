@@ -101,6 +101,18 @@ func (r *VerifyTenant) ValidateUpdate(old runtime.Object) error {
 	if r.Spec.Version < 1 || r.Spec.Version < r.Status.Version {
 		return errors.New(fmt.Sprintf("Invalid version: %d, version must be incremented", r.Spec.Version))
 	}
+	if err := r.validateNamespaces(r.Spec.Namespaces); err != nil {
+		return err
+	}
+	changed, err := r.targetNamespacesChanged(r.Spec.Namespaces, r.Status.WatchedNamespaces)
+	if err != nil {
+		return err
+	}
+	if changed { //If the list of namespaces has changed we have to enforce that the version is incremented
+		if r.Spec.Version == r.Status.Version {
+			return errors.New("Change in target namespaces detected, the OIDC client version must also be incremented")
+		}
+	}
 	return nil
 }
 
@@ -179,4 +191,29 @@ func (r *VerifyTenant) validateNamespaces(namespaces []string) error {
 		}
 	}
 	return nil
+}
+
+func (r *VerifyTenant) targetNamespacesChanged(newNamespaces []string, currentNamespaces []string) (bool, error) {
+	same := true
+	if len(newNamespaces) < 1 {
+		return same, errors.New("Must specify at least one namespace")
+	} else if len(newNamespaces) != len(currentNamespaces) {
+		// If they are different lengths they must be different
+		same = false
+	} else {
+		for _, name := range newNamespaces {
+			found := false
+			for _, ele := range currentNamespaces {
+				if ele == name { //Try to find name in currentNamespaces
+					found = true
+					break
+				}
+			}
+			if !found { // If not found
+				same = false
+				break
+			}
+		}
+	}
+	return same, nil
 }

@@ -112,6 +112,7 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		if k8serrors.IsNotFound(err) {
 			return reconcile.Result{}, nil
 		}
+		_log.Info("Reconcile VerifyTenant instance not found, exit")
 		return reconcile.Result{}, err
 	}
 
