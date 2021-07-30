@@ -87,6 +87,30 @@ type VerifyTenantStatus struct {
 	AccessTokenExpiry int64 `json:"access_token_expiry"`
 }
 
+func (tenant *VerifyTenant) HasFinalizer(finalizerName string) bool {
+	for _, ele := range tenant.ObjectMeta.Finalizers {
+		if ele == finalizerName {
+			return true
+		}
+	}
+	return false
+}
+
+func (tenant *VerifyTenant) AddFinalizer(finalizerName string) {
+	tenant.ObjectMeta.Finalizers = append(tenant.ObjectMeta.Finalizers, finalizerName)
+}
+
+func (tenant *VerifyTenant) RemoveFinalizer(finalizerName string) {
+	var result []string
+	for _, ele := range tenant.ObjectMeta.Finalizers {
+		if ele == finalizerName {
+			continue
+		}
+		result = append(result, ele)
+	}
+	tenant.ObjectMeta.Finalizers = result
+}
+
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 

@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-    http://www.apache.org/licenses/LICENSE-2.0
+	http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
@@ -84,6 +84,8 @@ type VerifyOIDCGrantResponse struct {
 var _log = logf.Log.WithName("verify_tenant_controller")
 var _verify_super_tenant_access_token = ""
 
+const _verify_tenant_finalizer = "finalizer.verify.tenant.ibm.com"
+
 //+kubebuilder:rbac:groups=ibm.com,resources=verifytenants,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
@@ -137,12 +139,13 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			if err != nil {
 				return reconcile.Result{}, err
 			}
-			err = r.createOrUpdateSecrets(oidcClient, tenantJson, instance)
-			if err != nil {
+			if err := r.createOrUpdateSecrets(oidcClient, tenantJson, instance); err != nil {
 				return reconcile.Result{}, err
 			}
 			instance.Status.Version = instance.Spec.Version
-			r.Client.Status().Update(context.TODO(), instance)
+			if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
+				return reconcile.Result{}, err
+			}
 			_log.Info("Client secret regenerated")
 		} else {
 			_log.Info("Version is correct, nothing to do")
@@ -169,8 +172,32 @@ func (r *VerifyTenantReconciler) Reconcile(ctx context.Context, req ctrl.Request
 			return reconcile.Result{}, err
 		}
 		instance.Status.Version = instance.Spec.Version
-		r.Client.Status().Update(context.TODO(), instance)
+		if err := r.Client.Status().Update(context.TODO(), instance); err != nil {
+			return reconcile.Result{}, err
+		}
 		_log.Info("Client secret created")
+	}
+
+	// Check if verify tenant is scheduled for deletion
+	if !instance.GetDeletionTimestamp().IsZero() {
+		_log.Info("Checking finalizer")
+		if instance.HasFinalizer(_verify_tenant_finalizer) {
+			_log.Info("Running VerifyTenant Finalizer")
+			if err := r.cleanupSecrets(instance); err != nil {
+				return ctrl.Result{}, err
+			}
+			instance.RemoveFinalizer(_verify_tenant_finalizer)
+			if err := r.Update(context.TODO(), instance); err != nil {
+				return ctrl.Result{}, err
+			} // If we are scheduled for deletion return at this point or the finalizer will be readded
+			_log.Info("Completed VerifyTenant Finalizer")
+		}
+	} else if !instance.HasFinalizer(_verify_tenant_finalizer) {
+		// Add the finalizer if required
+		instance.AddFinalizer(_verify_tenant_finalizer)
+		if err := r.Update(context.TODO(), instance); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	_log.Info("Reconcile VerifyTenant exit")
 	return ctrl.Result{}, nil
@@ -280,16 +307,15 @@ func (r *VerifyTenantReconciler) getOIDCClientData(tenant *VerifyTenantJson) (*V
 func (r *VerifyTenantReconciler) createOrUpdateSecrets(oidcClient *VerifyTenantOIDCClient, tenantJson *VerifyTenantJson, cr *ibmv1alpha1.VerifyTenant) error {
 	//TODO
 	//Check the cr.Status.Namespaces; if any have been removed make sure the secret is removed
-	// This is O^2 time but list should be small
 	for _, secretNamespace := range cr.Status.WatchedNamespaces {
 		found := false
-		for _, newNamespace := range cr.Spec.Namespaces {
-			if secretNamespace == newNamespace {
+		for _, ele := range cr.Spec.Namespaces {
+			if ele == secretNamespace {
 				found = true
 				break
 			}
 		}
-		if found == false {
+		if !found { //If not found in new list, GC it
 			expiredSecret := &corev1.Secret{
 				ObjectMeta: metav1.ObjectMeta{
 					Namespace: secretNamespace,
@@ -308,8 +334,7 @@ func (r *VerifyTenantReconciler) createOrUpdateSecrets(oidcClient *VerifyTenantO
 		if err != nil {
 			if k8serrors.IsNotFound(err) {
 				//Create it
-				err = r.createSecret(tenantJson, oidcClient, secretNamespace, cr)
-				if err != nil {
+				if err := r.createSecret(tenantJson, oidcClient, secretNamespace, cr); err != nil {
 					return err
 				}
 				continue
@@ -361,11 +386,21 @@ func (r *VerifyTenantReconciler) createSecret(tenantJson *VerifyTenantJson, oidc
 			"client_secret": oidcClient.ClientSecret,
 		},
 	}
-	err := r.Client.Create(context.TODO(), &secret)
-	if err != nil {
-		return err
+	return r.Client.Create(context.TODO(), &secret)
+}
+
+func (r *VerifyTenantReconciler) cleanupSecrets(cr *ibmv1alpha1.VerifyTenant) error {
+	for _, secretNamespace := range cr.Status.WatchedNamespaces {
+		expiredSecret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: secretNamespace,
+				Name:      cr.Spec.Secret,
+			},
+		}
+		// Not much we can do if it can't be deleted
+		r.Client.Delete(context.TODO(), expiredSecret)
 	}
-	return ctrl.SetControllerReference(cr, &secret, r.Scheme)
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
