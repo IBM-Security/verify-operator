@@ -36,7 +36,7 @@ The are a number of prerequisites which must be met before the Verify Access ope
 2. The RedHat certificated [Nginx Ingress operator](https://catalog.redhat.com/software/operators/detail/5e9874913f398525a0ceb00d) must be installed and the applications which are to be protected by IBM Security Verify must be accessed by the service which is provided by the Ingress controller.  Please note that this operator is different to the standard Kubernetes Nginx Ingress operator.  
 3. An IBM Security Verify tenant is required to provide authentication and adaptive access capabilities.  A free trial tenant is available and can be requested by clicking on the `Try free edition` button on the [Verify Access product page](https://www.ibm.com/products/verify-for-workforce-iam).
 
-**XXX: Still need to find out information on the creation of the OpenShift tenant.**
+> XXX: Still need to find out information on the creation of the OpenShift tenant.
 
 ### Restrictions
 
@@ -103,7 +103,7 @@ The IBM Security Verify operator in essence is made up of 2 components:
 
 Each of these needs to be deployed into the OpenShift environment before the operator can function.  The definitions for these resources are published with the IBM Security Verify Operator GitHub release in a single `bundle.yaml` file.  
 
-**XXX: Still need to check to see if the verify-operator-system is the namespace which is used.**
+> XXX: Still need to check to see if the verify-operator-system is the namespace which is used.
 
 To see a list of available releases refer to the releases page in GitHub: [https://github.com/IBM-Security/verify-access/releases](https://github.com/IBM-Security/verify-operator/releases).
 
@@ -168,7 +168,7 @@ oc apply -f verify-secret.yaml
 
 The secret can either be created manually or the yaml definition can be downloaded from the IBM Security Verify console and then applied in the OpenShift environment.
 
-**XXX: Still need to confirm the format of the secret, and find further information on how to obtain the YAML from the console.**
+> XXX: Still need to confirm the format of the secret, and find further information on how to obtain the YAML from the console.
 
 ### Configuring the Operator
 
@@ -249,7 +249,7 @@ oc apply -f verify-app-testapp.yaml
 
 The secret can either be created manually or the yaml definition can be downloaded from the IBM Security Verify console and then applied in the OpenShift environment.
 
-**XXX: The ability to download the application secret yaml is another good option to add to the Verify console.**
+> XXX: The ability to download the application secret yaml is another good option to add to the Verify console.
 
 #### Self Registration
 
@@ -266,7 +266,7 @@ When registering the application the operator will use the following fields:
 |Client authentication method|Client secret basic
 |Redirect URIs|https://\<nginx-ingress-url>/verify-oidc/auth
 
-**XXX: Do we need to allow any other fields to be specified?**
+> XXX: Do we need to allow any other fields to be specified?
 
 ### Creating an Ingress Resource
 
