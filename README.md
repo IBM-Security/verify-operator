@@ -113,13 +113,12 @@ kind: Secret
 apiVersion: v1
 
 metadata:
-  name: verify-test-tenant
-  
-  data: 
-    client_id: "1cbfe647-9e5f-4d99-8e05-8ec1c862eb47"
-    client_secret: "ZYDPLLBWSK3MVQJSIYHB1OR2JXCY0X2C5UJ2QAR2MAAIT5Q"
-    tenant_discovery_endpoint: "https://test_tenant.verify.ibm.com/oidc/endpoint/default/.well-known/openid-configuration"
-  type: generic
+  name: test-tenant.verify.ibm.com
+type: opaque
+data: 
+  client_id: MWNiZmU2NDctOWU1Zi00ZDk5LThlMDUtOGVjMWM4NjJlYjQ3Cg==
+  client_secret: WllEUExMQldTSzNNVlFKU0lZSEIxT1IySlhDWTBYMkM1VUoyUUFSMk1BQUlUNVEK
+  tenant_discovery_endpoint: aHR0cHM6Ly90ZXN0X3RlbmFudC52ZXJpZnkuaWJtLmNvbS9vaWRjL2VuZHBvaW50L2RlZmF1bHQvLndlbGwta25vd24vb3BlbmlkLWNvbmZpZ3VyYXRpb24K
 ```
 
 The following command can be used to create the secret from this file:
@@ -213,13 +212,11 @@ apiVersion: v1
 
 metadata:
   name: verify-app-testapp
-  
-  data: 
-    client_id: "1cbfe647-9e5f-4d99-8e05-8ec1c862eb47"
-    client_secret: "ZYDPLLBWSK3MVQJSIYHB1OR2JXCY0X2C5UJ2QAR2MAAIT5Q"
-    tenant_discovery_endpoint: "https://test_tenant.verify.ibm.com/oidc/endpoint/default/.well-known/openid-configuration"
-
-  type: generic
+type: opaque
+data: 
+  client_id: MWNiZmU2NDctOWU1Zi00ZDk5LThlMDUtOGVjMWM4NjJlYjQ3Cg==
+  client_secret: WllEUExMQldTSzNNVlFKU0lZSEIxT1IySlhDWTBYMkM1VUoyUUFSMk1BQUlUNVEK
+  tenant_discovery_endpoint: aHR0cHM6Ly90ZXN0X3RlbmFudC52ZXJpZnkuaWJtLmNvbS9vaWRjL2VuZHBvaW50L2RlZmF1bHQvLndlbGwta25vd24vb3BlbmlkLWNvbmZpZ3VyYXRpb24K
 ```
 
 The following command can be used to create the secret from this file:
