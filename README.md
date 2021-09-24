@@ -178,10 +178,8 @@ When registering the application the operator will use the following fields:
 |Application URL|The URL associated with the application, as obtained from the corresponding annotation in the Ingress definition.
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
-|Client authentication method|Client secret basic
+|User consent|The user consent field, as obtained from the corresponding annotation in the Ingress definition.
 |Redirect URIs|https://\<nginx-ingress-url>/verify-oidc/auth
-
-> XXX: Do we need to allow any other fields to be specified?
 
 #### Manual Registration
 
@@ -240,6 +238,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  The name of the secret will be of the format: 'verify\-app\-\<app.name>'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| 
 |verify.ibm.com/cr.name|This annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.
 |verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard.
+|verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never_prompt’ or ‘always_prompt’
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -254,6 +253,7 @@ metadata:
     verify.ibm.com/cr.name: "verify-test-tenant"
     verify.ibm.com/app.name: "testapp"
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
+    verify.ibm.com/consent.action: "always_prompt"
 spec:
   rules:
   - host: my-nginx-ingress.apps.acme.ibm.com
