@@ -158,6 +158,15 @@ bundle-build: ## Build the bundle image.
 bundle-push: ## Push the bundle image.
 	$(MAKE) docker-push IMG=$(BUNDLE_IMG)
 
+.PHONY: bundle-zip
+bundle-zip: ## zip up the bundle files.
+	zip -r bundle.zip bundle
+
+.PHONY: bundle-yaml
+bundle-yaml: kustomize ## create the yaml file for the bundle.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/default > bundle.yaml
+
 .PHONY: opm
 OPM = ./bin/opm
 opm: ## Download opm locally if necessary.
