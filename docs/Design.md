@@ -19,9 +19,7 @@ At a high level:
 The operator controller is pretty simple.  It will just:
 
 1. Start the HTTP server;
-2. Watch for IBMSecurityVerify custom resource requests.  We will only support the creation of a single custom resource. We will also need to validate that the tenantSecret field corresponds to a known secret.
-
-> XXX: I don't think that there is any point in allow multiple custom resources to be created.  Otherwise we would need to mandate an additional annotation in the deployment descriptors to explain which 'tenant' needs to be used.
+2. Watch for IBMSecurityVerify custom resource requests.  When a new custom resource is created the operator will simply validate that the specified tenantSecret field corresponds to a known secret, and that the secret contains the required fields.  The required fields include: `client_id`, `client_secret`, `discovery_endpoint`.
 
 A custom resource will look like the following:
 
@@ -36,7 +34,7 @@ metadata:
 spec:
   # The name of the secret which contains the IBM Security Verify
   # tenant information.
-  tenantSecret: verify-tenant
+  tenantSecret: verify-test-tenant
 
   # The root URL of the Nginx Ingress controller.
   ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
@@ -46,56 +44,82 @@ spec:
 
 The HTTP server is responsible for receiving Web requests from the Kubernetes admissions controller (aka webhooks), along with requests used during OIDC authentication.
 
-> XXX: I still need to research how to create the SSL certificate used by the server.
+### HTTP Server Certificate
+
+The certificate for the HTTP server will be stored in the `ibm-security-verify-operator` secret.  The secret will have two fields: 
+
+|Field|Description
+|-----|-----------
+|tls.cert|The server certificate which is used by the HTTP server.
+|tls.key|The private key which is used by the HTTP server.
+
+When the operator is first started it will look for the presence of this secret.  If the secret is present it will start the HTTP server using the provided key and certificate.  If the secret is not present it will create a new signed certificate, create the secret and then add the certificate information to the secret.
+
+A description of how to create the signed certificate can be found at the following locations:
+
+* [https://medium.com/@elfakharany/automate-kubernetes-user-creation-using-the-native-go-client-e2d20dcdc9de](https://medium.com/@elfakharany/automate-kubernetes-user-creation-using-the-native-go-client-e2d20dcdc9de)
+* [https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec](https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec)
+
+It is important to note that the certificate must be signed by the Kubernetes signing server, otherwise it is not trusted as a Webhook controller.
 
 ## Webhook Controller
 
 The Webhook controller is responsible for intercepting the creation of Ingress definitions and if the 'verify.ibm.com/app.name' annotation is present it will:
 
 1. Check to see if the application has been registered with Verify, based on the presence of the 'verify\-app\-\<app\-name>' secret.  If the secret does not currently exist it will:
-	1. Register the application with Verify;
+	1. Register the application with Verify for the tenant which is contained in the custom resource corresponding to the 'verify.ibm.com/cr.name' annotation.  If the annotation is missing the tenant located in the first located 'IBMSecurityVerify' custom resource will be used.
+	
 	2. Save the generated client ID and secret to a new Kubernetes secret.
+	
+	> Details on dynamic client registration can be found at the following URLs:
+   > 
+   >   - [https://www.ibm.com/docs/en/security-verify?topic=applications-openid-connect-dynamic-client-registration#t_dynamic_kc](https://www.ibm.com/docs/en/security-verify?topic=applications-openid-connect-dynamic-client-registration#t_dynamic_kc)
+   >   - [https://docs.verify.ibm.com/verify/reference/handledeviceauthorize#handleclientregistrationpost ](https://docs.verify.ibm.com/verify/reference/handledeviceauthorize#handleclientregistrationpost)
+
 2. Add the annotations, via a PATCH operation, to configure the Nginx Ingress operator to call out to the OIDC controller to perform OIDC authentication.
 
-> The following blog contains a good description on how to create a mutating Webhook controller: https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec
+> The following blog contains a good description on how to create a mutating Webhook controller: [https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec](https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec)
 
-### Annotations
+### Nginx Annotations
 
 The following blog contains a good description of how to configure the Nginx Ingress controller for OIDC authentication: [https://developer.okta.com/blog/2018/08/28/nginx-auth-request#configure-your-protected-nginx-host](https://developer.okta.com/blog/2018/08/28/nginx-auth-request#configure-your-protected-nginx-host).
 
-The following annotations will need to be added to the deployment/pod definition by the mutating Webhook:
+The following annotations will need to be added to the ingress definition by the mutating Webhook:
 
 ```yaml
-# Any request to this server will first be sent to this URL
-auth_request /vouch-validate;
+metadata:
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.org/server-snippets: |
+            location = /verify-oidc {
+                internal;
+                
+                proxy_pass https://verify-operator/oidc;
+                proxy_pass_request_body off; 
+                
+                proxy_set_header Content-Length "";
+                proxy_set_header X-Real-IP $remote_addr;
+                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                proxy_set_header X-Forwarded-Proto $scheme;
 
-location = /vouch-validate {
-  # This address is where Vouch will be listening on
-  proxy_pass http://127.0.0.1:9090/validate;
-  proxy_pass_request_body off; # no need to send the POST body
+                # these return values are passed to the @error401 call
+                auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
+                auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
+                auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
+            }
+            
+            error_page 401 = @error401;
 
-  proxy_set_header Content-Length "";
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
+            # If the user is not logged in, redirect them to the login URL
+            location @error401 {
+                return 302 https://verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&verify-secret=<secret-name>;
+            }
+            
+    nginx.org/location-snippets: |
+            auth_request /verify-oidc;
 
-  # these return values are passed to the @error401 call
-  auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
-  auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
-  auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
-}
-
-error_page 401 = @error401;
-
-# If the user is not logged in, redirect them to Vouch's login URL
-location @error401 {
-  return 302 https://login.avocado.lol/login?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err;
-}
 ```
 
-> XXX: Need to convert this yaml to annotations
-
-> XXX: I still need to work out how to handle multiple ingress definitions for the same host.  Maybe this is not a problem????
 
 ## OIDC Controller
 
@@ -107,10 +131,8 @@ The following endpoints are used by the controller:
 
 |Endpoint|Description
 |--------|-----------
-|/check|This is just the kick-off URL for the authentication processing.  It won't do anything by return a 401 so that Nginx will redirect the processing to the '/auth' endpoint.
-|/auth|This endpoint is the main endpoint for the authentication processing.
-
-> XXX: I still need to flesh out the '/auth' processing.
+|/verify-oidc/check|This is just the kick-off URL for the authentication processing.  It won't do anything by return a 401 so that Nginx will redirect the processing to the '/verify-oidc/auth' endpoint.
+|/verify-oidc/auth|This endpoint is the main endpoint for the authentication processing.  It will handle the generation of the redirect to IBM Security Verify for authentication, and the validation of the supplied OIDC JWT after the authentication has completed.
 
 The [Vouch Proxy](https://github.com/vouch/vouch-proxy) project contains an example OIDC-RP implementation which can be referenced for the implementation of this controller.  The [github.com/coreos/go-oidc](https://pkg.go.dev/github.com/coreos/go-oidc#section-readme) package will be used to handle the OIDC specific processing.
 
