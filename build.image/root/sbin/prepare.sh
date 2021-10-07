@@ -157,7 +157,7 @@ make() {
 help
 
 export VERSION=0.0.0
-export IMAGE_TAG_BASE=sec-iam-components-docker-local.artifactory.swg-devops.com/verify-operator
+export IMAGE_TAG_BASE=sec-isam-docker-local.artifactory.swg-devops.com/verify-operator
 
 EOF
 
