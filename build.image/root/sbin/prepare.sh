@@ -7,6 +7,26 @@
 set -e
 
 #
+# Enable install of RPMs from the CentOS-8 repository.
+#
+
+centos_repo_file="/etc/yum.repos.d/centos.repo"
+
+cat <<EOT >> $centos_repo_file
+[CentOS-8_base]
+name = CentOS-8 - Base
+baseurl = http://mirror.centos.org/centos/8-stream/BaseOS/x86_64/os
+gpgcheck = 0
+enabled = 1
+
+[CentOS-8_appstream]
+name = CentOS-8 - AppStream
+baseurl = http://mirror.centos.org/centos/8-stream/AppStream/x86_64/os
+gpgcheck = 0
+enabled = 1
+EOT
+
+#
 # Install the pre-requisite RedHat RPMs
 #
 
@@ -48,7 +68,7 @@ dnf -y install docker-ce
 
 export ARCH=amd64
 export OS=$(uname | awk '{print tolower($0)}')
-export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.7.2
+export OPERATOR_SDK_DL_URL=https://github.com/operator-framework/operator-sdk/releases/download/v1.13.0
 
 curl -LO ${OPERATOR_SDK_DL_URL}/operator-sdk_${OS}_${ARCH}
 
@@ -137,7 +157,7 @@ make() {
 help
 
 export VERSION=0.0.0
-export IMAGE_TAG_BASE=sec-cloud-identity-builds-docker-local.artifactory.swg-devops.com/verify-operator
+export IMAGE_TAG_BASE=sec-iam-components-docker-local.artifactory.swg-devops.com/verify-operator
 
 EOF
 

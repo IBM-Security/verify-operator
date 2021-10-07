@@ -1,4 +1,4 @@
 ## Append samples you want in your CSV to this file as resources ##
 resources:
-- ibm_v1alpha1_verifytenant.yaml
+- ibm_v1_ibmsecurityverify.yaml
 #+kubebuilder:scaffold:manifestskustomizesamples

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Lachlan Gleeson.
+Copyright 2021 isamdev@au1.ibm.com.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@ package main
 
 import (
 	"flag"
-	"net/http"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -32,8 +31,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	ibmv1alpha1 "github.com/IBM-Security/verify-operator/api/v1alpha1"
-	"github.com/IBM-Security/verify-operator/controllers"
+	ibmv1 "github.com/ibm-security/verify-operator/api/v1"
+	"github.com/ibm-security/verify-operator/controllers"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -45,7 +44,7 @@ var (
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
-	utilruntime.Must(ibmv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(ibmv1.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -72,23 +71,18 @@ func main() {
 		Port:                   9443,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "89f5e896.ibm.com",
+		LeaderElectionID:       "024cacd6.com",
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
 		os.Exit(1)
 	}
 
-	if err = (&controllers.VerifyTenantReconciler{
-		Client:     mgr.GetClient(),
-		Scheme:     mgr.GetScheme(),
-		HttpClient: controllers.HTTPClient(&http.Client{}),
+	if err = (&controllers.IBMSecurityVerifyReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "VerifyTenant")
-		os.Exit(1)
-	}
-	if err = (&ibmv1alpha1.VerifyTenant{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "VerifyTenant")
+		setupLog.Error(err, "unable to create controller", "controller", "IBMSecurityVerify")
 		os.Exit(1)
 	}
 	//+kubebuilder:scaffold:builder
