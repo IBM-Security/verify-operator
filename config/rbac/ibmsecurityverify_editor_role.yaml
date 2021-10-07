@@ -1,13 +1,13 @@
-# permissions for end users to edit verifytenants.
+# permissions for end users to edit ibmsecurityverifies.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: verifytenant-editor-role
+  name: ibmsecurityverify-editor-role
 rules:
 - apiGroups:
   - ibm.com
   resources:
-  - verifytenants
+  - ibmsecurityverifies
   verbs:
   - create
   - delete
@@ -19,6 +19,6 @@ rules:
 - apiGroups:
   - ibm.com
   resources:
-  - verifytenants/status
+  - ibmsecurityverifies/status
   verbs:
   - get

@@ -1,5 +1,5 @@
 /*
-Copyright 2021 Lachlan Gleeson.
+Copyright 2021.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -17,10 +17,6 @@ limitations under the License.
 package controllers
 
 import (
-	"bytes"
-	//"errors"
-	"io/ioutil"
-	"net/http"
 	"path/filepath"
 	"testing"
 
@@ -34,10 +30,8 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
-	ibmv1alpha1 "github.com/IBM-Security/verify-operator/api/v1alpha1"
+	ibmv1 "github.com/ibm-security/verify-operator/api/v1"
 	//+kubebuilder:scaffold:imports
-
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
@@ -46,25 +40,6 @@ import (
 var cfg *rest.Config
 var k8sClient client.Client
 var testEnv *envtest.Environment
-
-type MockClient struct {
-	DoFunc func(req *http.Request) (*http.Response, error)
-}
-
-var DoFunc = func(req *http.Request) (*http.Response, error) {
-	jsonStr := `{"id":"abcd1234","extraData":[{"key":"oidcClient",
-	"value":"{\"clientId\":\"abcd1234\",\"clientSecret\":\"abcd1234\",\"entitlements\":[\"manageOidcGrants\",\"manageApiClients\",\"manageUsers\"]}"}]}`
-	return &http.Response{
-		Body:       ioutil.NopCloser(bytes.NewBufferString(jsonStr)),
-		StatusCode: 200,
-	}, nil
-}
-
-func (m *MockClient) Do(req *http.Request) (*http.Response, error) {
-	return DoFunc(req)
-}
-
-var mockClient = MockClient{}
 
 func TestAPIs(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -87,7 +62,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(cfg).NotTo(BeNil())
 
-	err = ibmv1alpha1.AddToScheme(scheme.Scheme)
+	err = ibmv1.AddToScheme(scheme.Scheme)
 	Expect(err).NotTo(HaveOccurred())
 
 	//+kubebuilder:scaffold:scheme
@@ -96,22 +71,6 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
 
-	k8sManager, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
-	})
-	Expect(err).ToNot(HaveOccurred())
-
-	err = (&VerifyTenantReconciler{
-		Client:     k8sManager.GetClient(),
-		Scheme:     k8sManager.GetScheme(),
-		HttpClient: HTTPClient(&mockClient),
-	}).SetupWithManager(k8sManager)
-	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		err = k8sManager.Start(ctrl.SetupSignalHandler())
-		Expect(err).ToNot(HaveOccurred())
-	}()
 }, 60)
 
 var _ = AfterSuite(func() {

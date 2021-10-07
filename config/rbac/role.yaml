@@ -7,21 +7,9 @@ metadata:
   name: manager-role
 rules:
 - apiGroups:
-  - ""
+  - ibm.com
   resources:
-  - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - secrets
+  - ibmsecurityverifies
   verbs:
   - create
   - delete
@@ -33,25 +21,13 @@ rules:
 - apiGroups:
   - ibm.com
   resources:
-  - verifytenants
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ibm.com
-  resources:
-  - verifytenants/finalizers
+  - ibmsecurityverifies/finalizers
   verbs:
   - update
 - apiGroups:
   - ibm.com
   resources:
-  - verifytenants/status
+  - ibmsecurityverifies/status
   verbs:
   - get
   - patch

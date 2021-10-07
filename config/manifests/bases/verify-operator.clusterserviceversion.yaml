@@ -8,9 +8,15 @@ metadata:
   namespace: placeholder
 spec:
   apiservicedefinitions: {}
-  customresourcedefinitions: {}
-  description: Create and manage IBM Security Verify tenant
-  displayName: Verify Tenant Operator
+  customresourcedefinitions:
+    owned:
+    - description: IBMSecurityVerify is the Schema for the ibmsecurityverifies API
+      displayName: IBMSecurity Verify
+      kind: IBMSecurityVerify
+      name: ibmsecurityverifies.ibm.com
+      version: v1
+  description: TBD
+  displayName: IBM Security Verify Operator
   icon:
   - base64data: ""
     mediatype: ""
@@ -28,12 +34,10 @@ spec:
   - supported: true
     type: AllNamespaces
   keywords:
-  - ibm
-  - verify
   - security
   links:
-  - name: Verify Operator
-    url: https://verify-operator.domain
+  - name: New
+    url: https://new.domain
   maturity: alpha
   provider:
     name: IBM

@@ -5,18 +5,15 @@ plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: verify-operator
-repo: github.com/IBM-Security/verify-operator
+repo: github.com/ibm-security/verify-operator
 resources:
 - api:
     crdVersion: v1
     namespaced: true
   controller: true
-  domain: ibmcom
+  domain: com
   group: ibm
-  kind: VerifyTenant
-  path: github.com/IBM-Security/verify-operator/api/v1alpha1
-  version: v1alpha1
-  webhooks:
-    validation: true
-    webhookVersion: v1
+  kind: IBMSecurityVerify
+  path: github.com/ibm-security/verify-operator/api/v1
+  version: v1
 version: "3"
