@@ -1,109 +1,176 @@
 /*
-Copyright 2021 isamdev@au1.ibm.com.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+ * Copyright contributors to the IBM Security Verify Operator project
+ */
 
 package main
 
+/*****************************************************************************/
+
 import (
-	"flag"
-	"os"
+    "flag"
+    "os"
 
-	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
-	// to ensure that exec-entrypoint and run can make use of them.
-	_ "k8s.io/client-go/plugin/pkg/client/auth"
+    // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
+    // to ensure that exec-entrypoint and run can make use of them.
+    _ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/healthz"
-	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+    "k8s.io/apimachinery/pkg/runtime"
 
-	ibmv1 "github.com/ibm-security/verify-operator/api/v1"
-	"github.com/ibm-security/verify-operator/controllers"
-	//+kubebuilder:scaffold:imports
+    "sigs.k8s.io/controller-runtime/pkg/healthz"
+    "sigs.k8s.io/controller-runtime/pkg/log/zap"
+    "sigs.k8s.io/controller-runtime/pkg/webhook"
+
+    utilruntime    "k8s.io/apimachinery/pkg/util/runtime"
+    clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+    ctrl           "sigs.k8s.io/controller-runtime"
+
+    ibmv1 "github.com/ibm-security/verify-operator/api/v1"
+
+    "github.com/ibm-security/verify-operator/controllers"
+    //+kubebuilder:scaffold:imports
 )
+
+/*****************************************************************************/
 
 var (
-	scheme   = runtime.NewScheme()
-	setupLog = ctrl.Log.WithName("setup")
+    scheme   = runtime.NewScheme()
+    setupLog = ctrl.Log.WithName("setup")
 )
 
-func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+/*****************************************************************************/
 
-	utilruntime.Must(ibmv1.AddToScheme(scheme))
-	//+kubebuilder:scaffold:scheme
+/*
+ * Initialise the program.
+ */
+
+func init() {
+    utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+    utilruntime.Must(ibmv1.AddToScheme(scheme))
+
+    //+kubebuilder:scaffold:scheme
 }
+
+/*****************************************************************************/
+
+/*
+ * Our main line.
+ */
 
 func main() {
-	var metricsAddr string
-	var enableLeaderElection bool
-	var probeAddr string
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
-		"Enable leader election for controller manager. "+
-			"Enabling this will ensure there is only one active controller manager.")
-	opts := zap.Options{
-		Development: true,
-	}
-	opts.BindFlags(flag.CommandLine)
-	flag.Parse()
+    var metricsAddr          string
+    var enableLeaderElection bool
+    var probeAddr            string
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+    /*
+     * Set up our various options.
+     */
 
-	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:                 scheme,
-		MetricsBindAddress:     metricsAddr,
-		Port:                   9443,
-		HealthProbeBindAddress: probeAddr,
-		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "024cacd6.com",
-	})
-	if err != nil {
-		setupLog.Error(err, "unable to start manager")
-		os.Exit(1)
-	}
+    flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", 
+            "The address the metric endpoint binds to.")
+    flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", 
+            "The address the probe endpoint binds to.")
+    flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+            "Enable leader election for controller manager. " +
+            "Enabling this will ensure there is only one active controller " +
+            "manager.")
 
-	if err = (&controllers.IBMSecurityVerifyReconciler{
-		Client: mgr.GetClient(),
-                Log:    ctrl.Log.WithName("controllers").WithName("IBMSecurityVerify"),
-		Scheme: mgr.GetScheme(),
-	}).SetupWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create controller", "controller", "IBMSecurityVerify")
-		os.Exit(1)
-	}
-	if err = (&ibmv1.IBMSecurityVerify{}).SetupWebhookWithManager(mgr); err != nil {
-		setupLog.Error(err, "unable to create webhook", "webhook", "IBMSecurityVerify")
-		os.Exit(1)
-	}
-	//+kubebuilder:scaffold:builder
+    opts := zap.Options{
+        Development: true,
+    }
 
-	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up health check")
-		os.Exit(1)
-	}
-	if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
-		setupLog.Error(err, "unable to set up ready check")
-		os.Exit(1)
-	}
+    opts.BindFlags(flag.CommandLine)
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
-		setupLog.Error(err, "problem running manager")
-		os.Exit(1)
-	}
+    flag.Parse()
+
+    /*
+     * Set the logger.
+     */
+
+    ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+
+    /*
+     * Create the manager.
+     */
+
+    mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
+        Scheme:                 scheme,
+        MetricsBindAddress:     metricsAddr,
+        Port:                   9443,
+        HealthProbeBindAddress: probeAddr,
+        LeaderElection:         enableLeaderElection,
+        LeaderElectionID:       "024cacd6.com",
+    })
+
+    if err != nil {
+        setupLog.Error(err, "unable to start manager")
+        os.Exit(1)
+    }
+
+    /*
+     * Register our controller.
+     */
+
+    if err = (&controllers.IBMSecurityVerifyReconciler{
+        Client: mgr.GetClient(),
+        Log:    ctrl.Log.WithName("controllers").WithName("IBMSecurityVerify"),
+        Scheme: mgr.GetScheme(),
+    }).SetupWithManager(mgr); err != nil {
+        setupLog.Error(err, "Unable to create the controller", 
+                        "controller", "IBMSecurityVerify")
+        os.Exit(1)
+    }
+
+    /*
+     * Set up the Webhook manager for our API.  This WebHook is used to validate
+     * the IBMSecurityVerify custom resources.
+     */
+
+    if err = (&ibmv1.IBMSecurityVerify{}).SetupWebhookWithManager(mgr); 
+                                err != nil {
+        setupLog.Error(err, "Unable to create a webhook", 
+                                "webhook", "IBMSecurityVerify")
+
+        os.Exit(1)
+    }
+
+    /*
+     * Set up our health endpoints.
+     */
+
+    //+kubebuilder:scaffold:builder
+
+    if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
+        setupLog.Error(err, "unable to set up health check")
+        os.Exit(1)
+    }
+
+    if err := mgr.AddReadyzCheck("readyz", healthz.Ping); err != nil {
+        setupLog.Error(err, "unable to set up ready check")
+        os.Exit(1)
+    }
+
+    /*
+     * Register the Webhook which is used to annotate Ingress resources.
+     */
+
+    mgr.GetWebhookServer().Register("/mutate-v1-ingress", 
+            &webhook.Admission{
+                Handler: &ingressAnnotator{
+                    Client: mgr.GetClient(),
+                },
+            })
+
+    /*
+     * Now we can start listening for requests.
+     */
+
+    setupLog.Info("starting manager")
+
+    if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+        setupLog.Error(err, "problem running manager")
+        os.Exit(1)
+    }
 }
+
+/*****************************************************************************/
+
