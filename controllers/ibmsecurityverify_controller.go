@@ -48,7 +48,7 @@ type IBMSecurityVerifyReconciler struct {
  * move the current state of the cluster closer to the desired state.
  *
  * For more details, check Reconcile and its Result here:
- * - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.8.3/pkg/reconcile
+ * - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.9.2/pkg/reconcile
  */
 
 func (r *IBMSecurityVerifyReconciler) Reconcile(

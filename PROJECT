@@ -1,4 +1,4 @@
-domain: ibmcom
+domain: com
 layout:
 - go.kubebuilder.io/v3
 plugins:
@@ -16,4 +16,8 @@ resources:
   kind: IBMSecurityVerify
   path: github.com/ibm-security/verify-operator/api/v1
   version: v1
+  webhooks:
+    defaulting: true
+    validation: true
+    webhookVersion: v1
 version: "3"
