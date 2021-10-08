@@ -107,7 +107,7 @@ the source code will be automatically sync'ed as a part of the 'make' command.
 
 In order to be able to publish from the build container you will need to:
    1. Copy the ~/.kube/config file to /root/.kube/config
-   2. Perform a docker login to sec-cloud-identity-builds-docker-local.artifactory.swg-devops.com
+   2. Perform a docker login to sec-isam-docker-local.artifactory.swg-devops.com
 
 The following make targets can be used:
 
@@ -129,7 +129,7 @@ The following make targets can be used:
 
 In order to deploy the image, using OLM, to a Kubernetes environment:
     1. operator-sdk olm install
-    2. operator-sdk run bundle sec-cloud-identity-builds-docker-local.artifactory.swg-devops.com/verify-operator-bundle:0.0.0 --pull-secret-name artifactory-login
+    2. operator-sdk run bundle sec-isam-docker-local.artifactory.swg-devops.com/verify-operator-bundle:0.0.0 --pull-secret-name artifactory-login
 
 In order to cleanup the Kubernetes environment:
     1. operator-sdk cleanup verify-operator
