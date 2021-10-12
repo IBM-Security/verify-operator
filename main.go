@@ -156,7 +156,7 @@ func main() {
     mgr.GetWebhookServer().Register("/mutate-v1-ingress", 
             &webhook.Admission{
                 Handler: &ingressAnnotator{
-                    Client: mgr.GetClient(),
+                    client: mgr.GetClient(),
                 },
             })
 
