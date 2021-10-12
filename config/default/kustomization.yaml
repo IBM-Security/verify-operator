@@ -1,3 +1,5 @@
+# Copyright contributors to the IBM Security Verify Operator project
+
 # Adds namespace to all resources.
 namespace: verify-operator-system
 
