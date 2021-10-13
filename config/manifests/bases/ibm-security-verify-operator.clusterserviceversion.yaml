@@ -66,7 +66,7 @@ spec:
   - email: isamdev@au1.ibm.com
     name: Verify Development Team
   maturity: stable
-  minKubeVersion: 1.19.0
+  minKubeVersion: 1.17.0
   provider:
     name: IBM
     url: https://www.ibm.com
