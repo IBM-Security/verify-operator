@@ -81,8 +81,8 @@ To install the IBM Security Verify Access operator from the RedHat Operator Cata
 ```shell
 oc get csv -n operators
 
-NAME                       DISPLAY                        VERSION   REPLACES   PHASE
-verify-operator.v21.10.0   IBM Security Verify Operator   21.10.0              Succeeded
+NAME                                    DISPLAY                        VERSION   REPLACES   PHASE
+ibm-security-verify-operator.v21.10.0   IBM Security Verify Operator   21.10.0              Succeeded
 ``` 
 
 At this point the IBM Security Verify operator has been deployed and a subscription has been created that will monitor for any updates to the operator in the RedHat Operator Catalog. The IBM Security Verify operator is now operational.

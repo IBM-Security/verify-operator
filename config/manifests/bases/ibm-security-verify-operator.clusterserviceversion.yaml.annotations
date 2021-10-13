@@ -1,0 +1,21 @@
+      resources:
+      - kind: Ingress
+        name: ''
+        version: v1
+      specDescriptors:
+      - description: The name of the secret which contains the IBM Security Verify tenant information.
+        displayName: Tenant Secret
+        path: tenantSecret
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:text'
+      - description: The root URL of the Nginx Ingress controller.
+        displayName: Ingress Root
+        path: ingressRoot
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:text'
+      statusDescriptors:
+        - description: The list of status conditions associated with the custom resource.
+          displayName: Conditions
+          path: conditions
+          x-descriptors:
+            - 'urn:alm:descriptor:io.kubernetes.conditions'

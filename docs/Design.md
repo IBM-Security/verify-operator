@@ -94,7 +94,7 @@ metadata:
             location = /verify-oidc {
                 internal;
                 
-                proxy_pass https://verify-operator/oidc;
+                proxy_pass https://ibm-security-verify-operator/oidc;
                 proxy_pass_request_body off; 
                 
                 proxy_set_header Content-Length "";
@@ -112,7 +112,7 @@ metadata:
 
             # If the user is not logged in, redirect them to the login URL
             location @error401 {
-                return 302 https://verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&verify-secret=<secret-name>;
+                return 302 https://ibm-security-verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&verify-secret=<secret-name>;
             }
             
     nginx.org/location-snippets: |

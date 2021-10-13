@@ -6,7 +6,7 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: verify-operator
+projectName: ibm-security-verify-operator
 repo: github.com/ibm-security/verify-operator
 resources:
 - api:
