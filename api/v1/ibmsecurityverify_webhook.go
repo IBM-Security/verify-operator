@@ -52,6 +52,7 @@ func (r *IBMSecurityVerify) SetupWebhookWithManager(mgr ctrl.Manager) error {
 /*****************************************************************************/
 
 //+kubebuilder:webhook:path=/validate-ibm-com-v1-ibmsecurityverify,mutating=false,failurePolicy=fail,sideEffects=None,groups=ibm.com,resources=ibmsecurityverifies,verbs=create;update,versions=v1,name=vibmsecurityverify.kb.io,admissionReviewVersions={v1,v1beta1}
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
 
 /*****************************************************************************/
 
