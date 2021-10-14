@@ -163,7 +163,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	sed -i '/      version: v1/ r $(CSV_FILE).annotations' $(CSV_FILE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | sed "s|0000.0000.0000|$(VERSION)|g" | sed "s|--date--|`date`|g" | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
-	echo "  com.redhat.openshift.versions: \"v4.6-v4.8\"" >> bundle/metadata/annotations.yaml
+	echo "  com.redhat.openshift.versions: \"v4.7-v4.8\"" >> bundle/metadata/annotations.yaml
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build
