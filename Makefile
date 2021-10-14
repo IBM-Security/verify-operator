@@ -124,6 +124,13 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
+# Set the semantic version to 0.0.0 if we are in development and using the
+# latest tag.
+ifeq ($(VERSION), latest)
+SEMANTIC_VERSION = 0.0.0
+else
+SEMANTIC_VERSION = $(VERSION)
+endif
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
@@ -162,7 +169,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	operator-sdk generate kustomize manifests -q 
 	sed -i '/      version: v1/ r $(CSV_FILE).annotations' $(CSV_FILE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | sed "s|0000.0000.0000|$(VERSION)|g" | sed "s|--date--|`date`|g" | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(KUSTOMIZE) build config/manifests | sed "s|0000.0000.0000|$(SEMANTIC_VERSION)|g" | sed "s|--version--|$(VERSION)|g" | sed "s|--date--|`date`|g" | operator-sdk generate bundle -q --overwrite --version $(SEMANTIC_VERSION) $(BUNDLE_METADATA_OPTS)
 	echo "  com.redhat.openshift.versions: \"v4.7-v4.8\"" >> bundle/metadata/annotations.yaml
 	operator-sdk bundle validate ./bundle
 

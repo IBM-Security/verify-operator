@@ -8,7 +8,7 @@ metadata:
     capabilities: Seamless Upgrades
     categories: Security
     certified: "false"
-    containerImage: ibmcom/verify-operator:0000.0000.0000
+    containerImage: ibmcom/verify-operator:--version--
     createdAt: --date--
     description: The IBM Security Verify operator can consistently enforce policy-driven security, including authentication and authorization, using the Ingress networking capability of OpenShift.
     repository: https://github.com/IBM-Security/verify-operator
