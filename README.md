@@ -21,11 +21,11 @@
 
 ## Overview
 
-[IBM Security Verify](https://www.ibm.com/products/verify-for-workforce-iam) allows IT, security and business leaders to protect their digital users, assets and data in a hybrid multicloud world, while enabling technical agility and operational efficiency as a cloud-native solution. Beyond single sign-on (SSO) and multifactor authentication (MFA), Verify is a modernized, modular IDaaS that provides deep AI-powered context for risk-based authentication and adaptive access decisions, guided experiences for developer consumability and comprehensive cloud IAM capabilities, including user management, access recertification campaigns and identity analytics.
-
+[IBM Security Verify](https://www.ibm.com/products/verify-saas) is an Identity-as-a-Service platform that allows IT, security and business leaders to protect their digital users, assets and data in a hybrid, multi-cloud world by enabling technical agility and operational efficiency. IBM Security Verify SaaS provides single sign-on (SSO), multi-factor authentication (MFA), AI-powered context for risk-based authentication for adaptive access decisions, user management, access recertification campaigns and identity analytics.
+ 
 For a detailed description of IBM Security Verify refer to the [Offical documentation](https://www.ibm.com/docs/en/security-verify).
 
-The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift. With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code.
+The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift. With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code.  You can also dynamically register your application to start protecting them centrally from the cloud via Verify SaaS. 
 
 ### Prerequisites
 
