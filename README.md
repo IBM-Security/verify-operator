@@ -70,16 +70,16 @@ The information provided by the [RedHat Operator Catalog](https://catalog.redhat
 To install the IBM Security Verify Access operator from the RedHat Operator Catalog:
 
 1. Log into the OpenShift console as an administrator.
-2. In the left navigation column, click Operators and then OperatorHub. Type 'verify' in the search box, and click on the IBM Security Verify Operator box that appears.
+2. In the left navigation column, click Operators and then OperatorHub. Type 'verify-operator' in the search box, and click on the IBM Security Verify Operator box that appears.
 ![OpenShift Operator Search](docs/images/OpenShiftOperatorSearch.png)
 3. After reviewing the product information, click the `Install` button.
 ![OpenShift Operator Info](docs/images/OpenShiftOperatorProductInfo.png)
-4. On the 'Create Operator Subscription' page that opens, specify the cluster namespace in which to install the operator. Also click the `Automatic` radio button under Approval Strategy, to enable automatic updates of the running Operator instance without manual approval from the administrator. Click the `Subscribe` button.
+4. On the 'Install Operator' page that opens, specify the cluster namespace in which to install the operator. Also click the `Automatic` radio button under Approval Strategy, to enable automatic updates of the running Operator instance without manual approval from the administrator. Click the `Install` button.
 ![OpenShift Operator Subscription](docs/images/OpenShiftOperatorSubscription.png)
 5. Ensure that the IBM Security Verify Access operator has been created by the Operator Lifecycle Manager. The phase should be set to "Succeeded". Note that this may take a few minutes.
 
 ```shell
-oc get csv -n operators
+oc get csv -n openshift-operators
 
 NAME                                    DISPLAY                        VERSION   REPLACES   PHASE
 ibm-security-verify-operator.v21.10.0   IBM Security Verify Operator   21.10.0              Succeeded
