@@ -3,9 +3,9 @@
         name: ''
         version: v1
       specDescriptors:
-      - description: The name of the secret which contains the IBM Security Verify tenant information.
-        displayName: Tenant Secret
-        path: tenantSecret
+      - description: The name of the secret which contains the IBM Security Verify client credentials.
+        displayName: Client Secret
+        path: clientSecret
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:text'
       - description: The root URL of the Nginx Ingress controller.

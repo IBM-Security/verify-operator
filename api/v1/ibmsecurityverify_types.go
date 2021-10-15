@@ -15,8 +15,8 @@ import (
 // IBMSecurityVerifySpec defines the desired state of IBMSecurityVerify.
 type IBMSecurityVerifySpec struct {
     // The name of the secret which contains the IBM Security Verify
-    // tenant information.
-    TenantSecret string `json:"tenantSecret"`
+    // client credentials.
+    ClientSecret string `json:"clientSecret"`
 
     // The root URL of the Nginx Ingress controller.
     IngressRoot string `json:"ingressRoot"`

@@ -76,13 +76,13 @@ func (r *IBMSecurityVerify) ValidateCreate() error {
     err := ibmsecurityverifyClient.Get(context.TODO(), 
             client.ObjectKey{
 		Namespace: r.Namespace,
-		Name:      r.Spec.TenantSecret,
+		Name:      r.Spec.ClientSecret,
             }, 
             secret)
 
     if err != nil {
-        return errors.New(fmt.Sprintf("The spec.tenantSecret field, %s, does " +
-                "not correspond to an available secret.", r.Spec.TenantSecret))
+        return errors.New(fmt.Sprintf("The spec.clientSecret field, %s, does " +
+                "not correspond to an available secret.", r.Spec.ClientSecret))
     }
 
     /*
@@ -101,7 +101,7 @@ func (r *IBMSecurityVerify) ValidateCreate() error {
 
         if !ok {
             return errors.New(fmt.Sprintf("The secret, %s, is missing at " +
-                    "least one required field: %s", r.Spec.TenantSecret, field))
+                    "least one required field: %s", r.Spec.ClientSecret, field))
         }
     }
 

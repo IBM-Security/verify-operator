@@ -8,9 +8,9 @@ metadata:
 
 spec:
   # The name of the secret which contains the IBM Security Verify
-  # tenant information.
-  tenantSecret: test-tenant.verify.ibm.com
-  
+  # client credentials.
+  clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47 
+
   # The root URL of the Nginx Ingress controller.
   ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
 
