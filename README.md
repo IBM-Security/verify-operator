@@ -98,13 +98,14 @@ Before the operator can be used it must be configured with information which is 
 
 A Kubernetes secret is used by the operator controller to store sensitive information. This secret must be created in the Kubernetes namespace in which the IBM Security Verify operator is running. 
 
-The secret includes the following data fields:
+The secret includes the following fields:
 
 | Field | Description
 | ----- | -----------
-| client\_id | The ID of the IBM Security Verify client which will be used to create OIDC single sign-on applications.
-| client\_secret | The associated secret of the IBM Security Verify client which be used to create an OIDC single-sign-on application.
-| discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
+| metadata.labels.client_name | The name of the IBM Security Verify client which will be used to create OIDC single sign-on applications.
+| data.client\_id | The ID of the IBM Security Verify client which will be used to create OIDC single sign-on applications.
+| data.client\_secret | The associated secret of the IBM Security Verify client which be used to create OIDC single sign-on applications.
+| data.discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
 
 The following example (verify-secret.yaml) shows a secret definition:
 
@@ -114,6 +115,8 @@ apiVersion: v1
 
 metadata:
   name: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
+  labels:
+    client_name: my-openshift-client
 type: opaque
 data: 
   client_id: MWNiZmU2NDctOWU1Zi00ZDk5LThlMDUtOGVjMWM4NjJlYjQ3Cg==
@@ -198,9 +201,10 @@ Once the application has been registered a new secret will need to be created in
 
 |Field|Value
 |-----|-----  
-| client\_id | The ID of the client which will be used to single sign-on to the application.
-| client\_secret | The associated secret of the client which be used to single-sign-on to the application.
-| discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
+| metadata.labels.client_name | The name of the client (aka application).
+| data.client\_id | The ID of the client which will be used to single sign-on to the application.
+| data.client\_secret | The associated secret of the client which be used to single-sign-on to the application.
+| data.discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
 
 The following example (verify-app-testapp.yaml) shows a secret definition:
 
@@ -210,6 +214,8 @@ apiVersion: v1
 
 metadata:
   name: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
+  labels:
+    client_name: my-openshift-application
 type: opaque
 data: 
   client_id: MWNiZmU2NDctOWU1Zi00ZDk5LThlMDUtOGVjMWM4NjJlYjQ3Cg==
@@ -232,13 +238,12 @@ The secret can either be created manually or the yaml definition can be download
 
 When creating an Ingress resource a few additional metadata annotations must be included in the definition:
 
-|Annotation|Description|Value
-|----------|-----------|-----
-|kubernetes.io/ingress.class|This annotation is used by Kubernetes to determine which Ingress controller should be used for the request.  It is required so that requests are passed via the Nginx Ingress controller.|nginx
-|verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  The name of the secret will be of the format: 'ibm\-security\-verify\-client\-\<client\-id>'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| 
-|verify.ibm.com/cr.name|This annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.
-|verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard.
-|verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’
+|Annotation|Description|Required
+|----------|-----------|--------
+|verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  Existing secrets will be searched for a matching 'client_name' label.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| Yes
+|verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.| Required if the application has not already been registered.
+|verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | Required if the application has not already been registered.
+|verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -249,9 +254,8 @@ kind: Ingress
 metadata:
   name: testapp
   annotations:
-    kubernetes.io/ingress.class: "nginx"
+    verify.ibm.com/app.name: "my-openshift-application"
     verify.ibm.com/cr.name: "verify-test-tenant"
-    verify.ibm.com/app.name: "testapp"
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
     verify.ibm.com/consent.action: "always_prompt"
 spec:

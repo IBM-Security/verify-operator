@@ -66,7 +66,7 @@ It is important to note that the certificate must be signed by the Kubernetes si
 
 The Webhook controller is responsible for intercepting the creation of Ingress definitions and if the 'verify.ibm.com/app.name' annotation is present it will:
 
-1. Check to see if the application has been registered with Verify, based on the presence of the 'ibm\-security\-verify\-client\-\<client\-id>' secret.  If the secret does not currently exist it will:
+1. Check to see if the application has been registered with Verify, searching for a match on the 'client_name' label.  If the secret does not currently exist it will:
 	1. Register the application with Verify for the tenant which is contained in the custom resource corresponding to the 'verify.ibm.com/cr.name' annotation.  If the annotation is missing the tenant located in the first located 'IBMSecurityVerify' custom resource will be used.
 	
 	2. Save the generated client ID and secret to a new Kubernetes secret.
