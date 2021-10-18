@@ -698,6 +698,7 @@ func (a *ingressAnnotator) RegisterWithVerify(
         ConsentAction    string   `json:"consent_action"`
         AllUsersEntitled bool     `json:"all_users_entitled"`
         LoginUrl         string   `json:"initiate_login_uri"`
+        EnforcePkce      bool     `json:"enforce_pkce"`
     }
 
     body := &Request {
@@ -706,6 +707,7 @@ func (a *ingressAnnotator) RegisterWithVerify(
         ConsentAction:    consentAction,
         AllUsersEntitled: true,
         LoginUrl:         appUrl,
+        EnforcePkce:      false,
     }
 
     payloadBuf := new(bytes.Buffer)
