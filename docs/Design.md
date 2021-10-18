@@ -95,7 +95,7 @@ metadata:
                 internal;
                 
                 proxy_pass https://ibm-security-verify-operator/oidc;
-                proxy_pass_request_body off; 
+                proxy_pass_request_body off;
                 
                 proxy_set_header Content-Length "";
                 proxy_set_header X-Real-IP $remote_addr;
@@ -107,7 +107,7 @@ metadata:
                 auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
                 auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
             }
-            
+  
             error_page 401 = @error401;
 
             # If the user is not logged in, redirect them to the login URL

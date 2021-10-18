@@ -23,6 +23,7 @@ import (
     utilruntime    "k8s.io/apimachinery/pkg/util/runtime"
     clientgoscheme "k8s.io/client-go/kubernetes/scheme"
     ctrl           "sigs.k8s.io/controller-runtime"
+    logf           "sigs.k8s.io/controller-runtime/pkg/log"
 
     ibmv1 "github.com/ibm-security/verify-operator/api/v1"
 
@@ -157,6 +158,7 @@ func main() {
             &webhook.Admission{
                 Handler: &ingressAnnotator{
                     client: mgr.GetClient(),
+                    log:    logf.Log.WithName("ingress-resource"),
                 },
             })
 
