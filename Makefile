@@ -125,8 +125,10 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
 # Set the semantic version to 0.0.0 if we are in development and using the
-# latest tag.
+# latest or development tags.
 ifeq ($(VERSION), latest)
+SEMANTIC_VERSION = 0.0.0
+else ifeq ($(VERSION), latest)
 SEMANTIC_VERSION = 0.0.0
 else
 SEMANTIC_VERSION = $(VERSION)
