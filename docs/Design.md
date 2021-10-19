@@ -19,7 +19,7 @@ At a high level:
 The operator controller is pretty simple.  It will just:
 
 1. Start the HTTP server;
-2. Watch for IBMSecurityVerify custom resource requests.  When a new custom resource is created the operator will simply validate that the specified tenantSecret field corresponds to a known secret, and that the secret contains the required fields.  The required fields include: `client_id`, `client_secret`, `discovery_endpoint`.
+2. Watch for IBMSecurityVerify custom resource requests.  When a new custom resource is created the operator will simply validate that the specified clientSecret field corresponds to a known secret, and that the secret contains the required fields.  The required fields include: `client_id`, `client_secret`, `discovery_endpoint`.
 
 A custom resource will look like the following:
 
@@ -33,8 +33,8 @@ metadata:
 
 spec:
   # The name of the secret which contains the IBM Security Verify
-  # tenant information.
-  tenantSecret: verify-test-tenant
+  # client credentials.
+  clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
 
   # The root URL of the Nginx Ingress controller.
   ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
@@ -66,7 +66,7 @@ It is important to note that the certificate must be signed by the Kubernetes si
 
 The Webhook controller is responsible for intercepting the creation of Ingress definitions and if the 'verify.ibm.com/app.name' annotation is present it will:
 
-1. Check to see if the application has been registered with Verify, based on the presence of the 'verify\-app\-\<app\-name>' secret.  If the secret does not currently exist it will:
+1. Check to see if the application has been registered with Verify, searching for a secret which has the 'product' label set to 'ibm-security-verify' and a matching 'client\_name' field.  If the secret does not currently exist it will:
 	1. Register the application with Verify for the tenant which is contained in the custom resource corresponding to the 'verify.ibm.com/cr.name' annotation.  If the annotation is missing the tenant located in the first located 'IBMSecurityVerify' custom resource will be used.
 	
 	2. Save the generated client ID and secret to a new Kubernetes secret.
@@ -94,8 +94,8 @@ metadata:
             location = /verify-oidc {
                 internal;
                 
-                proxy_pass https://verify-operator/oidc;
-                proxy_pass_request_body off; 
+                proxy_pass https://ibm-security-verify-operator/oidc;
+                proxy_pass_request_body off;
                 
                 proxy_set_header Content-Length "";
                 proxy_set_header X-Real-IP $remote_addr;
@@ -107,12 +107,12 @@ metadata:
                 auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
                 auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
             }
-            
+  
             error_page 401 = @error401;
 
             # If the user is not logged in, redirect them to the login URL
             location @error401 {
-                return 302 https://verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&verify-secret=<secret-name>;
+                return 302 https://ibm-security-verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&verify-secret=<secret-name>;
             }
             
     nginx.org/location-snippets: |

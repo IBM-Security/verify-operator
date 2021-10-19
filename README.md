@@ -21,19 +21,19 @@
 
 ## Overview
 
-[IBM Security Verify](https://www.ibm.com/products/verify-for-workforce-iam) allows IT, security and business leaders to protect their digital users, assets and data in a hybrid multicloud world, while enabling technical agility and operational efficiency as a cloud-native solution. Beyond single sign-on (SSO) and multifactor authentication (MFA), Verify is a modernized, modular IDaaS that provides deep AI-powered context for risk-based authentication and adaptive access decisions, guided experiences for developer consumability and comprehensive cloud IAM capabilities, including user management, access recertification campaigns and identity analytics.
-
+[IBM Security Verify](https://www.ibm.com/products/verify-saas) is an Identity-as-a-Service platform that allows IT, security and business leaders to protect their digital users, assets and data in a hybrid, multi-cloud world by enabling technical agility and operational efficiency. IBM Security Verify SaaS provides single sign-on (SSO), multi-factor authentication (MFA), AI-powered context for risk-based authentication for adaptive access decisions, user management, access recertification campaigns and identity analytics.
+ 
 For a detailed description of IBM Security Verify refer to the [Offical documentation](https://www.ibm.com/docs/en/security-verify).
 
-The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift. With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code.
+The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift. With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code.  You can also dynamically register your application to start protecting them centrally from the cloud via Verify SaaS. 
 
 ### Prerequisites
 
-The are a number of prerequisites which must be met before the Verify Access operator can be installed and used, namely:
+The are a number of prerequisites which must be met before the Verify operator can be installed and used, namely:
 
 1. The operator supports the [RedHat OpenShift](https://www.redhat.com/en/technologies/cloud-computing/openshift) containerized environment and does not currently support other Kubernetes environments.  
 2. The RedHat certificated [Nginx Ingress operator](https://catalog.redhat.com/software/operators/detail/5e9874913f398525a0ceb00d) must be installed and the applications which are to be protected by IBM Security Verify must be accessed by the service which is provided by the Ingress controller.  Please note that this operator is different to the standard Kubernetes Nginx Ingress operator.  
-3. An IBM Security Verify tenant is required to provide authentication and adaptive access capabilities.  A free trial tenant is available and can be requested by clicking on the `Try free edition` button on the [Verify Access product page](https://www.ibm.com/products/verify-for-workforce-iam).
+3. An IBM Security Verify tenant is required to provide authentication and adaptive access capabilities.  A free trial tenant is available and can be requested by clicking on the `Try free edition` button on the [Verify product page](https://www.ibm.com/docs/en/security-verify).
 
 > XXX: Still need to find out information on the creation of the OpenShift tenant.
 
@@ -67,22 +67,22 @@ The information provided by the [RedHat Operator Catalog](https://catalog.redhat
 
 ### Procedure
 
-To install the IBM Security Verify Access operator from the RedHat Operator Catalog:
+To install the IBM Security Verify operator from the RedHat Operator Catalog:
 
 1. Log into the OpenShift console as an administrator.
-2. In the left navigation column, click Operators and then OperatorHub. Type 'verify' in the search box, and click on the IBM Security Verify Operator box that appears.
+2. In the left navigation column, click Operators and then OperatorHub. Type 'verify-operator' in the search box, and click on the IBM Security Verify Operator box that appears.
 ![OpenShift Operator Search](docs/images/OpenShiftOperatorSearch.png)
 3. After reviewing the product information, click the `Install` button.
 ![OpenShift Operator Info](docs/images/OpenShiftOperatorProductInfo.png)
-4. On the 'Create Operator Subscription' page that opens, specify the cluster namespace in which to install the operator. Also click the `Automatic` radio button under Approval Strategy, to enable automatic updates of the running Operator instance without manual approval from the administrator. Click the `Subscribe` button.
+4. On the 'Install Operator' page that opens, specify the cluster namespace in which to install the operator. Also click the `Automatic` radio button under Approval Strategy, to enable automatic updates of the running Operator instance without manual approval from the administrator. Click the `Install` button.
 ![OpenShift Operator Subscription](docs/images/OpenShiftOperatorSubscription.png)
-5. Ensure that the IBM Security Verify Access operator has been created by the Operator Lifecycle Manager. The phase should be set to "Succeeded". Note that this may take a few minutes.
+5. Ensure that the IBM Security Verify operator has been created by the Operator Lifecycle Manager. The phase should be set to "Succeeded". Note that this may take a few minutes.
 
 ```shell
-oc get csv -n operators
+oc get csv -n openshift-operators
 
-NAME                       DISPLAY                        VERSION   REPLACES   PHASE
-verify-operator.v21.10.0   IBM Security Verify Operator   21.10.0              Succeeded
+NAME                                    DISPLAY                        VERSION   REPLACES   PHASE
+ibm-security-verify-operator.v21.10.0   IBM Security Verify Operator   21.10.0              Succeeded
 ``` 
 
 At this point the IBM Security Verify operator has been deployed and a subscription has been created that will monitor for any updates to the operator in the RedHat Operator Catalog. The IBM Security Verify operator is now operational.
@@ -91,7 +91,7 @@ At this point the IBM Security Verify operator has been deployed and a subscript
 
 Before the operator can be used it must be configured with information which is specific to the running OpenShift environment.  Two steps must be completed in order to configure the operator:
 
-1. Create the secret which contains the IBM Security Verify tenant information;
+1. Create the secret which contains the IBM Security Verify client credentials;
 2. Create the IBMSecurityVerify custom resource for the IBM Security Verify tenant.
 
 ### Secrets
@@ -102,8 +102,9 @@ The secret includes the following data fields:
 
 | Field | Description
 | ----- | -----------
+| client\_name | The name of the IBM Security Verify client which will be used to create OIDC single sign-on applications.
 | client\_id | The ID of the IBM Security Verify client which will be used to create OIDC single sign-on applications.
-| client\_secret | The associated secret of the IBM Security Verify client which be used to create an OIDC single-sign-on application.
+| client\_secret | The associated secret of the IBM Security Verify client which be used to create OIDC single sign-on applications.
 | discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
 
 The following example (verify-secret.yaml) shows a secret definition:
@@ -113,9 +114,12 @@ kind: Secret
 apiVersion: v1
 
 metadata:
-  name: test-tenant.verify.ibm.com
+  name: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
+  labels:
+    product: ibm-security-verify
 type: opaque
 data: 
+  client_name: bXktb3BlbnNoaWZ0LWNsaWVudAo=
   client_id: MWNiZmU2NDctOWU1Zi00ZDk5LThlMDUtOGVjMWM4NjJlYjQ3Cg==
   client_secret: WllEUExMQldTSzNNVlFKU0lZSEIxT1IySlhDWTBYMkM1VUoyUUFSMk1BQUlUNVEK
   discovery_endpoint: aHR0cHM6Ly90ZXN0X3RlbmFudC52ZXJpZnkuaWJtLmNvbS9vaWRjL2VuZHBvaW50L2RlZmF1bHQvLndlbGwta25vd24vb3BlbmlkLWNvbmZpZ3VyYXRpb24K
@@ -147,8 +151,8 @@ metadata:
 
 spec:
   # The name of the secret which contains the IBM Security Verify
-  # tenant information.
-  tenantSecret: verify-test-tenant
+  # client credentials.
+  clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   
   # The root URL of the Nginx Ingress controller.
   ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
@@ -194,13 +198,15 @@ The following fields should be set when registering the application:
 |Client authentication method|Client secret basic
 |Redirect URIs|https://\<nginx-ingress-url\>/verify/auth
 
-Once the application has been registered a new secret will need to be created in the same OpenShift namespace as the IBM Security Verify operator.  The name of the secret should be of the format: 'verify\-app\-\<app\-name>', and consist of the following fields:
+Once the application has been registered a new secret will need to be created in the same OpenShift namespace as the IBM Security Verify operator.  The name of the secret should be of the format: 'ibm\-security\-verify\-client\-\<client\-id>', and consist of the following fields:
 
 |Field|Value
 |-----|-----  
-| client\_id | The ID of the client which will be used to single sign-on to the application.
-| client\_secret | The associated secret of the client which be used to single-sign-on to the application.
-| discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
+| metadata.labels.product | 'ibm-security-verify'
+| data.client_name | The name of the client (aka application).
+| data.client\_id | The ID of the client which will be used to single sign-on to the application.
+| data.client\_secret | The associated secret of the client which be used to single-sign-on to the application.
+| data.discovery\_endpoint | The discovery endpoint, which returns a JSON listing of the OpenID/OAuth endpoints, for the IBM Security Verify tenant.
 
 The following example (verify-app-testapp.yaml) shows a secret definition:
 
@@ -209,9 +215,12 @@ kind: Secret
 apiVersion: v1
 
 metadata:
-  name: verify-app-testapp
+  name: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
+  labels:
+    product: ibm-security-verify
 type: opaque
 data: 
+  client_name: bXktb3BlbnNoaWZ0LWFwcGxpY2F0aW9uCg==
   client_id: MWNiZmU2NDctOWU1Zi00ZDk5LThlMDUtOGVjMWM4NjJlYjQ3Cg==
   client_secret: WllEUExMQldTSzNNVlFKU0lZSEIxT1IySlhDWTBYMkM1VUoyUUFSMk1BQUlUNVEK
   discovery_endpoint: aHR0cHM6Ly90ZXN0X3RlbmFudC52ZXJpZnkuaWJtLmNvbS9vaWRjL2VuZHBvaW50L2RlZmF1bHQvLndlbGwta25vd24vb3BlbmlkLWNvbmZpZ3VyYXRpb24K
@@ -232,13 +241,12 @@ The secret can either be created manually or the yaml definition can be download
 
 When creating an Ingress resource a few additional metadata annotations must be included in the definition:
 
-|Annotation|Description|Value
-|----------|-----------|-----
-|kubernetes.io/ingress.class|This annotation is used by Kubernetes to determine which Ingress controller should be used for the request.  It is required so that requests are passed via the Nginx Ingress controller.|nginx
-|verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  The name of the secret will be of the format: 'verify\-app\-\<app.name>'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| 
-|verify.ibm.com/cr.name|This annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.
-|verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard.
-|verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’
+|Annotation|Description|Required
+|----------|-----------|--------
+|verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  Existing secrets will be searched for a 'product' label of 'ibm-security-verify' and a matching 'client\_name'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| Yes
+|verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.| Required if the application has not already been registered.
+|verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | Required if the application has not already been registered.
+|verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -249,9 +257,8 @@ kind: Ingress
 metadata:
   name: testapp
   annotations:
-    kubernetes.io/ingress.class: "nginx"
+    verify.ibm.com/app.name: "my-openshift-application"
     verify.ibm.com/cr.name: "verify-test-tenant"
-    verify.ibm.com/app.name: "testapp"
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
     verify.ibm.com/consent.action: "always_prompt"
 spec:

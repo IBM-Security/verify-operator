@@ -1,7 +1,16 @@
+# Copyright contributors to the IBM Security Verify Operator project
+
 apiVersion: ibm.com/v1
 kind: IBMSecurityVerify
+
 metadata:
   name: ibmsecurityverify-sample
+
 spec:
-  # Add fields here
-  foo: bar
+  # The name of the secret which contains the IBM Security Verify
+  # client credentials.
+  clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47 
+
+  # The root URL of the Nginx Ingress controller.
+  ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
+

@@ -1,3 +1,5 @@
+# Copyright contributors to the IBM Security Verify Operator project
+
 # VERSION defines the project version for the bundle.
 # Update this value when you upgrade the version of your project.
 # To re-generate a bundle for another specific version without changing the standard setup, you can:
@@ -10,6 +12,8 @@ VERSION ?= 0.0.1
 # To re-generate a bundle for other specific channels without changing the standard setup, you can:
 # - use the CHANNELS as arg of the bundle target (e.g make bundle CHANNELS=candidate,fast,stable)
 # - use environment variables to overwrite this value (e.g export CHANNELS="candidate,fast,stable")
+CHANNELS="stable"
+
 ifneq ($(origin CHANNELS), undefined)
 BUNDLE_CHANNELS := --channels=$(CHANNELS)
 endif
@@ -94,7 +98,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go
+	go build -o bin/manager main.go ingress_webhook.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go
@@ -120,6 +124,15 @@ deploy: manifests kustomize ## Deploy controller to the K8s cluster specified in
 undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/default | kubectl delete -f -
 
+# Set the semantic version to 0.0.0 if we are in development and using the
+# latest or development tags.
+ifeq ($(VERSION), latest)
+SEMANTIC_VERSION = 0.0.0
+else ifeq ($(VERSION), development)
+SEMANTIC_VERSION = 0.0.0
+else
+SEMANTIC_VERSION = $(VERSION)
+endif
 
 CONTROLLER_GEN = $(shell pwd)/bin/controller-gen
 controller-gen: ## Download controller-gen locally if necessary.
@@ -147,11 +160,19 @@ rm -rf $$TMP_DIR ;\
 }
 endef
 
+# Unfortunately the kustomize command will cause some of the definitions
+# which are required for the scorecard tests (e.g. 'owned.resources') to be
+# removed from the CSV file.  We need to manually add these definitions back
+# into the file using sed.
+CSV_FILE = config/manifests/bases/ibm-security-verify-operator.clusterserviceversion.yaml
+
 .PHONY: bundle
 bundle: manifests kustomize ## Generate bundle manifests and metadata, then validate generated files.
-	operator-sdk generate kustomize manifests -q
+	operator-sdk generate kustomize manifests -q 
+	sed -i '/      version: v1/ r $(CSV_FILE).annotations' $(CSV_FILE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
-	$(KUSTOMIZE) build config/manifests | sed "s|0.0.0|$(VERSION)|g" | sed "s|--date--|`date`|g" | operator-sdk generate bundle -q --overwrite --version $(VERSION) $(BUNDLE_METADATA_OPTS)
+	$(KUSTOMIZE) build config/manifests | sed "s|0000.0000.0000|$(SEMANTIC_VERSION)|g" | sed "s|--version--|$(VERSION)|g" | sed "s|--date--|`date`|g" | operator-sdk generate bundle -q --overwrite --version $(SEMANTIC_VERSION) $(BUNDLE_METADATA_OPTS)
+	echo "  com.redhat.openshift.versions: \"v4.7-v4.8\"" >> bundle/metadata/annotations.yaml
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build

@@ -105,9 +105,16 @@ are rsynced from the workspace directory (/workspace).  If you want to
 manually rsync the source code you can issue the 'resync' command, otherwise
 the source code will be automatically sync'ed as a part of the 'make' command.
 
+When running the operator in OpenShift you need to ensure that the published
+controller image is publically accessible (i.e. there is no way to supply an
+image pull secret).  The easiest way to do this is to create a public
+repository in a personal account on Docker Hub.  An alternative is to use the
+OpenShift Container Platform registry.  Further information can be found
+at: https://docs.openshift.com/container-platform/4.6/registry/securing-exposing-registry.html
+
 In order to be able to publish from the build container you will need to:
    1. Copy the ~/.kube/config file to /root/.kube/config
-   2. Perform a docker login to sec-cloud-identity-builds-docker-local.artifactory.swg-devops.com
+   2. Perform a docker login to the repository (i.e. 'docker login')
 
 The following make targets can be used:
 
@@ -129,10 +136,10 @@ The following make targets can be used:
 
 In order to deploy the image, using OLM, to a Kubernetes environment:
     1. operator-sdk olm install
-    2. operator-sdk run bundle sec-cloud-identity-builds-docker-local.artifactory.swg-devops.com/verify-operator-bundle:0.0.0 --pull-secret-name artifactory-login
+    2. operator-sdk run bundle \${IMAGE_TAG_BASE}-bundle:\${VERSION} 
 
 In order to cleanup the Kubernetes environment:
-    1. operator-sdk cleanup verify-operator
+    1. operator-sdk cleanup ibm-security-verify-operator
     2. operator-sdk olm uninstall
 
 EOF
@@ -156,8 +163,8 @@ make() {
 
 help
 
-export VERSION=0.0.0
-export IMAGE_TAG_BASE=sec-isam-docker-local.artifactory.swg-devops.com/verify-operator
+export VERSION=latest
+export IMAGE_TAG_BASE=docker.io/isamdev/verify-operator-dev
 
 EOF
 

@@ -1,4 +1,7 @@
 # Copyright contributors to the IBM Security Verify Operator project
 
 resources:
-- monitor.yaml
+- certificate.yaml
+
+configurations:
+- kustomizeconfig.yaml
