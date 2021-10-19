@@ -128,7 +128,7 @@ undeploy: ## Undeploy controller from the K8s cluster specified in ~/.kube/confi
 # latest or development tags.
 ifeq ($(VERSION), latest)
 SEMANTIC_VERSION = 0.0.0
-else ifeq ($(VERSION), latest)
+else ifeq ($(VERSION), development)
 SEMANTIC_VERSION = 0.0.0
 else
 SEMANTIC_VERSION = $(VERSION)
