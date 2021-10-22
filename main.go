@@ -8,6 +8,8 @@ package main
 
 import (
     "flag"
+    "fmt"
+    "io/ioutil"
     "os"
 
     // Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -15,6 +17,8 @@ import (
     _ "k8s.io/client-go/plugin/pkg/client/auth"
 
     "k8s.io/apimachinery/pkg/runtime"
+    "k8s.io/client-go/tools/clientcmd"
+    "k8s.io/client-go/tools/clientcmd/api"
 
     "sigs.k8s.io/controller-runtime/pkg/healthz"
     "sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -49,6 +53,44 @@ func init() {
     utilruntime.Must(ibmv1.AddToScheme(scheme))
 
     //+kubebuilder:scaffold:scheme
+}
+/*****************************************************************************/
+
+/*
+ * This function is used to determine the namespace in which the current
+ * pod is running.
+ */
+
+func getLocalNamespace() (namespace string, err error) {
+    var namespaceBytes []byte
+    var clientCfg      *api.Config
+
+    const k8sNamespaceFile string =
+                "/var/run/secrets/kubernetes.io/serviceaccount/namespace"
+
+    /*
+     * Work out the namespace which should be used.  In a Kubernetes
+     * environment we read this from the namespace file, otherwise we use
+     * the default namespace in the kubectl file.
+     */
+
+    namespace = "default"
+
+    namespaceBytes, err = ioutil.ReadFile(k8sNamespaceFile)
+
+    if err != nil {
+        clientCfg, err = clientcmd.NewDefaultClientConfigLoadingRules().Load()
+
+        if err != nil {
+            return
+        }
+
+        namespace = clientCfg.Contexts[clientCfg.CurrentContext].Namespace
+    } else {
+        namespace = string(namespaceBytes)
+    }
+
+    return
 }
 
 /*****************************************************************************/
@@ -154,13 +196,37 @@ func main() {
      * Register the Webhook which is used to annotate Ingress resources.
      */
 
+    namespace, err := getLocalNamespace()
+
+    if err != nil {
+        setupLog.Error(err, "unable to determine the local namespace")
+        os.Exit(1)
+    }
+
     mgr.GetWebhookServer().Register("/mutate-v1-ingress", 
             &webhook.Admission{
                 Handler: &ingressAnnotator{
-                    client: mgr.GetClient(),
-                    log:    logf.Log.WithName("ingress-resource"),
+                    client:    mgr.GetClient(),
+                    log:       logf.Log.WithName("ingress-resource"),
+                    namespace: namespace,
                 },
             })
+
+    /*
+     * Initialise and start the OIDC server.
+     */
+
+    oidcServer := OidcServer{
+        log:  logf.Log.WithName("OIDCServer"),
+        cert: fmt.Sprintf("%s/%s", 
+                        mgr.GetWebhookServer().CertDir, 
+                        mgr.GetWebhookServer().CertName),
+        key:  fmt.Sprintf("%s/%s", 
+                        mgr.GetWebhookServer().CertDir, 
+                        mgr.GetWebhookServer().KeyName),
+    }
+
+    go oidcServer.start()
 
     /*
      * Now we can start listening for requests.

@@ -40,9 +40,10 @@ import (
  */
 
 type ingressAnnotator struct {
-    client  client.Client
-    log     logr.Logger
-    decoder *admission.Decoder
+    client    client.Client
+    log       logr.Logger
+    decoder   *admission.Decoder
+    namespace string
 }
 
 /*
@@ -95,7 +96,7 @@ const oidcAuthUri          = "/verify-oidc/auth"
 const nginxAnnotation = `location = /verify-oidc {
   internal;
 
-  proxy_pass https://ibm-security-verify-operator/oidc;
+  proxy_pass %s/oidc;
   proxy_pass_request_body off;
 
   proxy_set_header Content-Length "";
@@ -113,7 +114,7 @@ error_page 401 = @error401;
 
 # If the user is not logged in, redirect them to the login URL
 location @error401 {
-  return 302 https://ibm-security-verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&namespace=%s&verify-secret=%s;
+  return 302 %s/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&namespace=%s&verify-secret=%s;
 }
 `
 /*****************************************************************************/
@@ -478,11 +479,14 @@ func (a *ingressAnnotator) AddAnnotations(
      * Add some new annotations.
      */
 
+    oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
+                            ".%s.svc.cluster.local:7443", a.namespace)
+
     ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
     ingress.Annotations["nginx.org/location-snippets"] = 
                                     "auth_request /verify-oidc;"
     ingress.Annotations["nginx.org/server-snippets"]   = 
-                    fmt.Sprintf(nginxAnnotation, namespace, name)
+            fmt.Sprintf(nginxAnnotation, oidcRoot, oidcRoot, namespace, name)
 
     /*
      * Remove some existing annotations which are no longer required.
