@@ -217,11 +217,12 @@ func main() {
      */
 
     oidcServer := OidcServer{
-        log:  logf.Log.WithName("OIDCServer"),
-        cert: fmt.Sprintf("%s/%s", 
+        k8sClient: mgr.GetClient(),
+        log:       logf.Log.WithName("OIDCServer"),
+        cert:      fmt.Sprintf("%s/%s", 
                         mgr.GetWebhookServer().CertDir, 
                         mgr.GetWebhookServer().CertName),
-        key:  fmt.Sprintf("%s/%s", 
+        key:       fmt.Sprintf("%s/%s", 
                         mgr.GetWebhookServer().CertDir, 
                         mgr.GetWebhookServer().KeyName),
     }

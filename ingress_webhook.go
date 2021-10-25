@@ -58,63 +58,28 @@ type Endpoints struct {
 /*****************************************************************************/
 
 /*
- * Constants....
- */
-
-/*
- * Annotation keys.
- */
-
-const appNameKey           = "verify.ibm.com/app.name"
-const appUrlKey            = "verify.ibm.com/app.url"
-const crNameKey            = "verify.ibm.com/cr.name"
-const consentKey           = "verify.ibm.com/consent.action"
-
-/*
- * Secret keys.
- */
-
-const productKey           = "product"
-const clientNameKey        = "client_name"
-const clientIdKey          = "client_id"
-const clientSecretKey      = "client_secret"
-const discoveryEndpointKey = "discovery_endpoint"
-const secretNamePrefix     = "ibm-security-verify-client-"
-const productName          = "ibm-security-verify"
-
-/*
- * Registration constants.
- */
-
-const defaultConsentAction = "always_prompt"
-const oidcAuthUri          = "/verify-oidc/auth"
-
-/*
  * The main Nginx annotation.
  */
 
-const nginxAnnotation = `location = /verify-oidc {
-  internal;
-
-  proxy_pass %s/oidc;
+const nginxAnnotation = `location = %s {
+  proxy_pass %s%s;
   proxy_pass_request_body off;
 
   proxy_set_header Content-Length "";
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-
-  # these return values are passed to the @error401 call
-  auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
-  auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
-  auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
+  proxy_set_header %s %s;
+  proxy_set_header %s %s;
+  proxy_set_header %s %s%s;
 }
 
 error_page 401 = @error401;
 
 # If the user is not logged in, redirect them to the login URL
 location @error401 {
-  return 302 %s/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&namespace=%s&verify-secret=%s;
+  proxy_pass %s%s?%s=$scheme://$http_host$request_uri;
+
+  proxy_set_header %s %s;
+  proxy_set_header %s %s;
+  proxy_set_header %s %s%s;
 }
 `
 /*****************************************************************************/
@@ -175,12 +140,22 @@ func (a *ingressAnnotator) Handle(
     }
 
     /*
+     * Retrieve the custom resource which should be used.
+     */
+
+    cr, err := a.RetrieveCR(ingress)
+
+    if err != nil {
+        return admission.Errored(http.StatusBadRequest, err)
+    }
+
+    /*
      * If the secret has not been located so we need to register the application
      * and create the secret now.
      */
 
     if secret == nil {
-        secret, err = a.RegisterApplication(appName, ingress)
+        secret, err = a.RegisterApplication(appName, cr, ingress)
 
         if err != nil {
             a.log.Error(err, "Failed to register the application.", 
@@ -194,7 +169,7 @@ func (a *ingressAnnotator) Handle(
      * Add the annotation to the ingress.
      */
 
-    err = a.AddAnnotations(ingress, secret.Namespace, secret.Name)
+    err = a.AddAnnotations(cr, ingress, secret.Namespace, secret.Name)
 
     if err != nil {
         a.log.Error(err, 
@@ -319,6 +294,7 @@ func (a *ingressAnnotator) ValidateSecret(secret *apiv1.Secret) (error) {
 
 func (a *ingressAnnotator) RegisterApplication(
                     appName string,
+                    cr      *ibmv1.IBMSecurityVerify,
                     ingress *netv1.Ingress) (*apiv1.Secret, error) {
 
     a.log.Info("RegisterApplication", 
@@ -336,23 +312,13 @@ func (a *ingressAnnotator) RegisterApplication(
     }
 
     /*
-     * Retrieve the custom resource which should be used.
-     */
-
-    cr, err := a.RetrieveCR(ingress)
-
-    if err != nil {
-        return nil, err
-    }
-
-    /*
      * Now that we have the appropriate custom resource we need to load the
      * corresponding secret.
      */
 
     clientSecret := &apiv1.Secret{}
 
-    err = a.client.Get(context.TODO(), 
+    err := a.client.Get(context.TODO(), 
                 client.ObjectKey{
                     Namespace: ingress.Namespace,
                     Name:      cr.Spec.ClientSecret,
@@ -471,6 +437,7 @@ func (a *ingressAnnotator) RetrieveCR(
  */
 
 func (a *ingressAnnotator) AddAnnotations(
+                    cr        *ibmv1.IBMSecurityVerify,
                     ingress   *netv1.Ingress,
                     namespace string,
                     name      string) (error) {
@@ -480,13 +447,18 @@ func (a *ingressAnnotator) AddAnnotations(
      */
 
     oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
-                            ".%s.svc.cluster.local:7443", a.namespace)
+                            ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
 
     ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
     ingress.Annotations["nginx.org/location-snippets"] = 
-                                    "auth_request /verify-oidc;"
+                                    fmt.Sprintf("auth_request %s;", oidcAuthUri)
     ingress.Annotations["nginx.org/server-snippets"]   = 
-            fmt.Sprintf(nginxAnnotation, oidcRoot, oidcRoot, namespace, name)
+        fmt.Sprintf(nginxAnnotation, oidcAuthUri, 
+            oidcRoot, authUri, namespaceHdr, namespace, verifySecretHdr, name, 
+            urlRootHdr, cr.Spec.IngressRoot, oidcAuthUri,
+            oidcRoot, loginUri, urlArg, namespaceHdr, namespace, 
+            verifySecretHdr, name, urlRootHdr, cr.Spec.IngressRoot, 
+            oidcAuthUri)
 
     /*
      * Remove some existing annotations which are no longer required.
