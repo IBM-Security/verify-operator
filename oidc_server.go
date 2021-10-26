@@ -194,6 +194,7 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
         } else {
             server.log.Info("User is authorized.", "user", user)
 
+            w.Header().Set("X-Username", user)
             w.WriteHeader(http.StatusNoContent)
         }
 
@@ -272,10 +273,27 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
     }
 
     /*
+     * Extract the preferred username.
+     */
+
+    var claims struct {
+	PreferredUsername string `json:"preferred_username"`
+    }
+
+    if err := idToken.Claims(&claims); err != nil {
+        server.log.Error(err, "Failed to extract the claims.")
+
+        http.Error(w, "Failed to extract the claims: " + err.Error(), 
+                        http.StatusInternalServerError)
+
+        return
+    }
+
+    /*
      * Save the user name to the session.
      */
 
-    session.Values[sessionUserKey] = idToken.Subject
+    session.Values[sessionUserKey] = claims.PreferredUsername
 
     err = session.Save(r, w)
 
@@ -301,7 +319,7 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
     }
 
     server.log.Info("User has been authenticated.", 
-                        "user", idToken.Subject,
+                        "user", claims.PreferredUsername,
                         "original url", url)
 
     http.Redirect(w, r, url, http.StatusFound)

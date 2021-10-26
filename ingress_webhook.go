@@ -61,7 +61,7 @@ type Endpoints struct {
  * The main Nginx annotation.
  */
 
-const nginxAnnotation = `location = %s {
+const nginxServerAnnotation = `location = %s {
   proxy_pass %s%s;
   proxy_pass_request_body off;
 
@@ -82,6 +82,12 @@ location @error401 {
   proxy_set_header %s $scheme://$http_host%s;
 }
 `
+
+const nginxLocationAnnotation = `auth_request %s;
+auth_request_set $auth_username $upstream_http_x_username;
+proxy_set_header X-Remote-User $auth_username;
+`
+
 /*****************************************************************************/
 
 /*
@@ -449,9 +455,9 @@ func (a *ingressAnnotator) AddAnnotations(
     }
 
     ingress.Annotations["nginx.org/location-snippets"] = 
-                                    fmt.Sprintf("auth_request %s;", oidcAuthUri)
+        fmt.Sprintf(nginxLocationAnnotation, oidcAuthUri)
     ingress.Annotations["nginx.org/server-snippets"]   = 
-        fmt.Sprintf(nginxAnnotation, oidcAuthUri, 
+        fmt.Sprintf(nginxServerAnnotation, oidcAuthUri, 
             oidcRoot, authUri, namespaceHdr, namespace, verifySecretHdr, name, 
             urlRootHdr, oidcAuthUri,
             oidcRoot, loginUri, urlArg, namespaceHdr, namespace, 

@@ -277,3 +277,5 @@ The following command can be used to create the Ingress definition from this fil
 ```shell
 oc apply -f testapp.yaml
 ```
+
+By adding these additional annotations to the Ingress definition the operator will ensure that the client has been authenticated against IBM Security Verify before allowing access to the service.  The operator will also insert the `X-REMOTE-USER` HTTP header into the request so that the service can be made aware of the name of the authenticated user.
