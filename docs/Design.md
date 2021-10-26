@@ -28,7 +28,7 @@ kind: IBMSecurityVerify
 
 metadata:
   name: test-tenant.verify.ibm.com
-  namespace: operators
+  namespace: openshift-operators
 
 spec:
   # The name of the secret which contains the IBM Security Verify

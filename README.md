@@ -147,15 +147,12 @@ kind: IBMSecurityVerify
 
 metadata:
   name: verify-test-tenant
-  namespace: operators
+  namespace: openshift-operators
 
 spec:
   # The name of the secret which contains the IBM Security Verify
   # client credentials.
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
-  
-  # The root URL of the Nginx Ingress controller.
-  ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
 ```
 
 The following command can be used to create the custom resource from this file:
@@ -183,7 +180,7 @@ When registering the application the operator will use the following fields:
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
 |User consent|The user consent field, as obtained from the corresponding annotation in the Ingress definition.
-|Redirect URIs|https://\<nginx-ingress-url\>/verify-oidc/auth
+|Redirect URIs|The valid redirect URL's, obtained from the `Host` fields within the rules of the Ingress definition.
 
 #### Manual Registration
 
@@ -196,7 +193,7 @@ The following fields should be set when registering the application:
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
 |Client authentication method|Client secret basic
-|Redirect URIs|https://\<nginx-ingress-url\>/verify/auth
+|Redirect URIs|https://\<nginx-ingress-url\>/verify-oidc
 
 Once the application has been registered a new secret will need to be created in the same OpenShift namespace as the IBM Security Verify operator.  The name of the secret should be of the format: 'ibm\-security\-verify\-client\-\<client\-id>', and consist of the following fields:
 
@@ -247,6 +244,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.| Required if the application has not already been registered.
 |verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | Required if the application has not already been registered.
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
+|verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -261,6 +259,7 @@ metadata:
     verify.ibm.com/cr.name: "verify-test-tenant"
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
     verify.ibm.com/consent.action: "always_prompt"
+    verify.ibm.com/protocol: "https"
 spec:
   rules:
   - host: my-nginx-ingress.apps.acme.ibm.com

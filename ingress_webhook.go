@@ -68,7 +68,7 @@ const nginxAnnotation = `location = %s {
   proxy_set_header Content-Length "";
   proxy_set_header %s %s;
   proxy_set_header %s %s;
-  proxy_set_header %s %s%s;
+  proxy_set_header %s $scheme://$http_host%s;
 }
 
 error_page 401 = @error401;
@@ -79,7 +79,7 @@ location @error401 {
 
   proxy_set_header %s %s;
   proxy_set_header %s %s;
-  proxy_set_header %s %s%s;
+  proxy_set_header %s $scheme://$http_host%s;
 }
 `
 /*****************************************************************************/
@@ -455,9 +455,9 @@ func (a *ingressAnnotator) AddAnnotations(
     ingress.Annotations["nginx.org/server-snippets"]   = 
         fmt.Sprintf(nginxAnnotation, oidcAuthUri, 
             oidcRoot, authUri, namespaceHdr, namespace, verifySecretHdr, name, 
-            urlRootHdr, cr.Spec.IngressRoot, oidcAuthUri,
+            urlRootHdr, oidcAuthUri,
             oidcRoot, loginUri, urlArg, namespaceHdr, namespace, 
-            verifySecretHdr, name, urlRootHdr, cr.Spec.IngressRoot, 
+            verifySecretHdr, name, urlRootHdr, 
             oidcAuthUri)
 
     /*
@@ -469,6 +469,7 @@ func (a *ingressAnnotator) AddAnnotations(
         appUrlKey,
         crNameKey,
         consentKey,
+        protocolKey,
     }
 
     for _, field := range fields {
@@ -665,6 +666,22 @@ func (a *ingressAnnotator) RegisterWithVerify(
     }
 
     /*
+     * Work out whether a protocol has been supplied.
+     */
+
+    protocol, found := ingress.Annotations[protocolKey]
+
+    if !found {
+        protocol = defaultProtocol
+    } else {
+        if protocol != "http" && protocol != "https" && protocol != "both" {
+            return nil, errors.New(
+                fmt.Sprintf("An unexpected protocol was specified: %s/%s", 
+                        protocolKey, protocol))
+        }
+    }
+
+    /*
      * Construct the request body.
      */
 
@@ -677,9 +694,33 @@ func (a *ingressAnnotator) RegisterWithVerify(
         EnforcePkce      bool     `json:"enforce_pkce"`
     }
 
+    /*
+     * Construct the list of redirect URIs based on the Ingress specification.
+     */
+
+    var redirectUris []string
+
+    if ingress.Spec.Rules != nil && len(ingress.Spec.Rules) > 0 {
+        for _, rule := range ingress.Spec.Rules {
+            if protocol == "http" || protocol == "both" {
+                redirectUris = append(redirectUris, 
+                        fmt.Sprintf("http://%s%s", rule.Host, oidcAuthUri))
+            }
+
+            if protocol == "https" || protocol == "both" {
+                redirectUris = append(redirectUris, 
+                    fmt.Sprintf("https://%s%s", rule.Host, oidcAuthUri))
+            }
+        }
+    }
+
+    /*
+     * Construct the registration request.
+     */
+
     body := &Request {
         ClientName:       appName,
-        RedirectUris:     []string { cr.Spec.IngressRoot + oidcAuthUri },
+        RedirectUris:     redirectUris,
         ConsentAction:    consentAction,
         AllUsersEntitled: true,
         LoginUrl:         appUrl,

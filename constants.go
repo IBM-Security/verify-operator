@@ -14,6 +14,7 @@ const appNameKey           = "verify.ibm.com/app.name"
 const appUrlKey            = "verify.ibm.com/app.url"
 const crNameKey            = "verify.ibm.com/cr.name"
 const consentKey           = "verify.ibm.com/consent.action"
+const protocolKey          = "verify.ibm.com/protocol"
 
 /*
  * Secret keys.
@@ -32,6 +33,7 @@ const productName          = "ibm-security-verify"
  */
 
 const defaultConsentAction = "always_prompt"
+const defaultProtocol      = "https"
 const oidcAuthUri          = "/verify-oidc"
 
 /*

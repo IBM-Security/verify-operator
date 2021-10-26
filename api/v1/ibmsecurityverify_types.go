@@ -17,9 +17,6 @@ type IBMSecurityVerifySpec struct {
     // The name of the secret which contains the IBM Security Verify
     // client credentials.
     ClientSecret string `json:"clientSecret"`
-
-    // The root URL of the Nginx Ingress controller.
-    IngressRoot string `json:"ingressRoot"`
 }
 
 /*****************************************************************************/

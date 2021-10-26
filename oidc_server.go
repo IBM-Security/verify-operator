@@ -159,6 +159,8 @@ func (server *OidcServer) start() {
 
 func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
+    server.log.Info("Received authentication request.")
+
     /*
      * Retrieve the session for the user.
      */
@@ -183,9 +185,15 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
          * if we have been authenticated or not.
          */
 
-        if server.GetSessionData(session, sessionUserKey) == "" {
+        user := server.GetSessionData(session, sessionUserKey)
+
+        if user == "" {
+            server.log.Info("User is not currently authorized.")
+
             w.WriteHeader(http.StatusUnauthorized)
         } else {
+            server.log.Info("User is authorized.", "user", user)
+
             w.WriteHeader(http.StatusNoContent)
         }
 
@@ -292,6 +300,10 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    server.log.Info("User has been authenticated.", 
+                        "user", idToken.Subject,
+                        "original url", url)
+
     http.Redirect(w, r, url, http.StatusFound)
 }
 
@@ -303,6 +315,8 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
  */
 
 func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
+
+    server.log.Info("Kicking off the authentication process.")
 
     /*
      * Retrieve the Verify client which is to be used for this request.
