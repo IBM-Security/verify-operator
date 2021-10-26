@@ -449,7 +449,10 @@ func (a *ingressAnnotator) AddAnnotations(
     oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
                             ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
 
-    ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
+    if _, ok := ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
+        ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
+    }
+
     ingress.Annotations["nginx.org/location-snippets"] = 
                                     fmt.Sprintf("auth_request %s;", oidcAuthUri)
     ingress.Annotations["nginx.org/server-snippets"]   = 
