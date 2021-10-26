@@ -301,15 +301,10 @@ func (a *ingressAnnotator) RegisterApplication(
                     "name", appName, "annotations", ingress.Annotations)
 
     /*
-     * Verify that the app.url annotation exists.
+     * Retrieve the app.url annotation.
      */
 
-    appUrl, found := ingress.Annotations[appUrlKey]
-
-    if !found {
-        return nil, errors.New(
-            fmt.Sprintf("A required annotation, %s, is missing.", appUrlKey))
-    }
+    appUrl, _ := ingress.Annotations[appUrlKey]
 
     /*
      * Now that we have the appropriate custom resource we need to load the
