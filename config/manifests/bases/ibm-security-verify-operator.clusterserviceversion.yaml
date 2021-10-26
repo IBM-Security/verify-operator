@@ -35,7 +35,7 @@ spec:
 
     For a detailed description of IBM Security Verify refer to the [Official documentation](https://www.ibm.com/docs/en/security-verify).
 
-    The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift. With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code. You can also dynamically register your application to start protecting them centrally from the cloud via Verify SaaS. 
+    The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift in conjunction with the [Nginx Ingress operator](https://www.nginx.com/blog/getting-started-nginx-ingress-operator-red-hat-openshift/). With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code. You can also dynamically register your application to start protecting them centrally from the cloud via Verify SaaS. 
 
     See the project [Readme](https://github.com/IBM-Security/verify-operator/blob/master/README.md) for further information and details.
 
