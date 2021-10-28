@@ -118,8 +118,9 @@ func (server *OidcServer) start() {
 
     mux := http.NewServeMux()
 
-    mux.HandleFunc(authUri,  server.authenticate)
-    mux.HandleFunc(loginUri, server.login)
+    mux.HandleFunc(authUri,   server.authenticate)
+    mux.HandleFunc(loginUri,  server.login)
+    mux.HandleFunc(logoutUri, server.logout)
 
     server.web.Handler = mux
 
@@ -406,6 +407,42 @@ func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
     http.Redirect(w, r, client.oauth2Config.AuthCodeURL(state), 
                         http.StatusFound)
 }
+
+/*****************************************************************************/
+
+/*
+ * This function is used log the user out.  As a result of this the user will 
+ * be removed from the session cache and the session cookie will be cleared.
+ */
+
+func (server *OidcServer) logout(w http.ResponseWriter, r *http.Request) {
+    server.log.Info("Logging out the user.")
+
+    /*
+     * Retrieve the session for the user.
+     */
+
+    session, err := server.store.Get(r, sessionCookieName)
+
+    if err == nil && session != nil {
+        /*
+         * Log out the user session by setting the MaxAge of the session to
+         * -1.
+         */
+
+        session.Options.MaxAge = -1
+        session.Save(r, w)
+    }
+
+    logoutURL := r.Header.Get(logoutRedirectHdr)
+
+    if logoutURL == "" {
+        w.WriteHeader(http.StatusNoContent)
+    } else {
+        http.Redirect(w, r, logoutURL, http.StatusFound)
+    }
+}
+
 
 /*****************************************************************************/
 

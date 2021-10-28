@@ -81,6 +81,15 @@ location @error401 {
   proxy_set_header %s %s;
   proxy_set_header %s $scheme://$http_host%s;
 }
+
+%s
+`
+
+const nginxLogoutLocationAnnotation = `location = %s/logout {
+  proxy_pass %s/logout;
+
+  proxy_set_header %s %s;
+}
 `
 
 const nginxLocationAnnotation = `auth_request %s;
@@ -444,25 +453,49 @@ func (a *ingressAnnotator) AddAnnotations(
                     name      string) (error) {
 
     /*
-     * Add some new annotations.
+     * Add the ingress class annotation.
      */
-
-    oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
-                            ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
 
     if _, ok := ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
         ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
     }
 
+    /*
+     * Add the location snippets for the Ingress resource.
+     */
+
     ingress.Annotations["nginx.org/location-snippets"] = 
-        fmt.Sprintf(nginxLocationAnnotation, oidcAuthUri)
+        fmt.Sprintf(nginxLocationAnnotation, cr.Spec.AuthPath)
+
+    /*
+     * Add the server snippets for the Ingress resource.
+     */
+
+    oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
+                            ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
+
+    logoutAnnotation := ""
+    if cr.Spec.LogoutRedirectURL != "" {
+        logoutAnnotation = fmt.Sprintf(nginxLogoutLocationAnnotation, 
+            cr.Spec.AuthPath,                             // logout location
+            oidcRoot,                                     // proxy_pass
+            logoutRedirectHdr, cr.Spec.LogoutRedirectURL, // redirect header
+        )
+    }
+
     ingress.Annotations["nginx.org/server-snippets"]   = 
-        fmt.Sprintf(nginxServerAnnotation, oidcAuthUri, 
-            oidcRoot, authUri, namespaceHdr, namespace, verifySecretHdr, name, 
-            urlRootHdr, oidcAuthUri,
-            oidcRoot, loginUri, urlArg, namespaceHdr, namespace, 
-            verifySecretHdr, name, urlRootHdr, 
-            oidcAuthUri)
+        fmt.Sprintf(nginxServerAnnotation, 
+            cr.Spec.AuthPath,             // authentication location
+            oidcRoot, authUri,            // proxy_pass for the auth call
+            namespaceHdr, namespace,      // namespace header
+            verifySecretHdr, name,        // verify secret header
+            urlRootHdr, cr.Spec.AuthPath, // URL root header
+            oidcRoot, loginUri, urlArg,   // proxy_pass for the 401
+            namespaceHdr, namespace,      // namespace header
+            verifySecretHdr, name,        // verify secret header
+            urlRootHdr, cr.Spec.AuthPath, // URL root header
+            logoutAnnotation,             // Logout location
+        )
 
     /*
      * Remove some existing annotations which are no longer required.
@@ -708,12 +741,12 @@ func (a *ingressAnnotator) RegisterWithVerify(
         for _, rule := range ingress.Spec.Rules {
             if protocol == "http" || protocol == "both" {
                 redirectUris = append(redirectUris, 
-                        fmt.Sprintf("http://%s%s", rule.Host, oidcAuthUri))
+                        fmt.Sprintf("http://%s%s", rule.Host, cr.Spec.AuthPath))
             }
 
             if protocol == "https" || protocol == "both" {
                 redirectUris = append(redirectUris, 
-                    fmt.Sprintf("https://%s%s", rule.Host, oidcAuthUri))
+                    fmt.Sprintf("https://%s%s", rule.Host, cr.Spec.AuthPath))
             }
         }
     }

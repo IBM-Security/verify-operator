@@ -35,8 +35,17 @@ spec:
   # client credentials.
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
 
-  # The root URL of the Nginx Ingress controller.
-  ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
+  # The lifetime, in seconds, for an authenticated session.  
+  sessionLifetime: 3600
+
+  # The URL path, within the Ingress service, for the Verify SSO server.
+  authPath: /verify-sso
+
+  # The URL to which a client will be redirected upon logout.    If no
+  # logout redirect URL is specified the server will not provide a mechanism
+  # to logout the user.  The logout URI is constructed by appending the
+  # '/logout' URL segment to the configured 'AuthPath'.
+  logoutRedirectURL: /logout_response
 ```
 
 ## Ingress Webhook
@@ -71,26 +80,32 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.org/server-snippets: |
-	    location = /verify-oidc {
-	      proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/auth;
-	      proxy_pass_request_body off;
+	   location = /verify-sso {
+        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/auth;
+        proxy_pass_request_body off;
 	
-	      proxy_set_header Content-Length "";
-	      proxy_set_header X-Namespace default;
-	      proxy_set_header X-Verify-Secret ibm-security-verify-client-6112c297-da5e-4b95-a620-1b5ea8afb822;
-	      proxy_set_header X-URL-Root http://my-nginx-ingress-controller-openshift-operators.apps.scottex.cp.fyre.ibm.com/verify-oidc;
-	    }
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Namespace default;
+        proxy_set_header X-Verify-Secret ibm-security-verify-client-85f8a46b-3e65-407d-b9fd-a841f44a39ca;
+        proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
+      }
 
-	    error_page 401 = @error401;
-	
-	    # If the user is not logged in, redirect them to the login URL
-	    location @error401 {
-	      proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/login?url=$scheme://$http_host$request_uri;
-	
-	      proxy_set_header X-Namespace default;
-	      proxy_set_header X-Verify-Secret ibm-security-verify-client-6112c297-da5e-4b95-a620-1b5ea8afb822;
-	      proxy_set_header X-URL-Root http://my-nginx-ingress-controller-openshift-operators.apps.scottex.cp.fyre.ibm.com/verify-oidc;
-	    }
+      error_page 401 = @error401;
+
+      # If the user is not logged in, redirect them to the login URL
+      location @error401 {
+        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/login?url=$scheme://$http_host$request_uri;
+
+        proxy_set_header X-Namespace default;
+        proxy_set_header X-Verify-Secret ibm-security-verify-client-85f8a46b-3e65-407d-b9fd-a841f44a39ca;
+        proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
+      }
+
+      location = /verify-sso/logout {
+        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/logout;
+
+        proxy_set_header X-Logout-Redirect http://www.google.com;
+      }
             
     nginx.org/location-snippets: |
             auth_request /verify-oidc;
@@ -108,8 +123,10 @@ The following endpoints are used by the controller:
 
 |Endpoint|Description
 |--------|-----------
+|/check|This URL will simply check to see if the user is currently authenticated or not.  If they are not authenticated they will be redirected to '/login.
 |/login|This is the kick-off URL for the authentication processing.  It will handle the generation of the redirect to IBM Security Verify for authentication.
 |/auth|This endpoint is the main endpoint for the authentication processing.  It will mostly handle the validation of the supplied OIDC JWT after the authentication has completed.
+|/logout|This endpoint will log out the current authenticated session.
 
 
 The [Vouch Proxy](https://github.com/vouch/vouch-proxy) project contains an example OIDC-RP implementation which can be referenced for the implementation of this controller.  The [github.com/coreos/go-oidc](https://pkg.go.dev/github.com/coreos/go-oidc#section-readme) package will be used to handle the OIDC specific processing.

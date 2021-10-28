@@ -11,6 +11,15 @@ spec:
   # client credentials.
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47 
 
-  # The root URL of the Nginx Ingress controller.
-  ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
+  # The lifetime, in seconds, for an authenticated session.  
+  sessionLifetime: 3600
+
+  # The URL path, within the Ingress service, for the Verify SSO server.
+  authPath: /verify-sso
+
+  # The URL to which a client will be redirected upon logout.    If no
+  # logout redirect URL is specified the server will not provide a mechanism
+  # to logout the user.  The logout URI is constructed by appending the
+  # '/logout' URL segment to the configured 'AuthPath'.
+  # logoutRedirectURL: /logout_response
 

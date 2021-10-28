@@ -34,9 +34,9 @@ In order to test the environment on RedHat Openshift the `ibmcom/verify-operator
 
 ```shell
 opm index add -u docker \
-  --bundles docker.io/ibmcom/verify-access-operator-bundle:1.1.3 \
+  --bundles docker.io/ibmcom/verify-operator-bundle:1.1.3 \
   --from-index quay.io/operatorhubio/catalog:latest \
-  --tag docker.io/scottexton/verify-access-operator-catalog:1.1.3
+  --tag docker.io/isamdev/verify-operator-catalog:1.1.3
 ```
 
 * Add the catalog to the list of OpenShift catalogs using something similar to the following yaml file:
@@ -49,7 +49,7 @@ metadata:
   namespace: openshift-marketplace 
 spec:
   sourceType: grpc
-  image: docker.io/scottexton/verify-access-operator-catalog:1.1.3
+  image: docker.io/isamdev/verify-operator-catalog:1.1.3
   displayName: My Operator Catalog
   publisher: Verify Operator Development
   updateStrategy:

@@ -34,7 +34,6 @@ const productName          = "ibm-security-verify"
 
 const defaultConsentAction = "always_prompt"
 const defaultProtocol      = "https"
-const oidcAuthUri          = "/verify-oidc"
 
 /*
  * Session constants.
@@ -50,13 +49,15 @@ const sessionUrlKey     = "original-url"
  * HTTP server constants.
  */
 
-const httpsPort       = 7443
-const authUri         = "/auth"
-const loginUri        = "/login"
-const urlArg          = "url"
-const namespaceHdr    = "X-Namespace"
-const verifySecretHdr = "X-Verify-Secret"
-const urlRootHdr      = "X-URL-Root"
+const httpsPort         = 7443
+const authUri           = "/auth"
+const loginUri          = "/login"
+const logoutUri         = "/logout"
+const urlArg            = "url"
+const namespaceHdr      = "X-Namespace"
+const verifySecretHdr   = "X-Verify-Secret"
+const urlRootHdr        = "X-URL-Root"
+const logoutRedirectHdr = "X-Logout-Redirect"
 
 /*****************************************************************************/
 
