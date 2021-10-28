@@ -8,18 +8,17 @@ The operator itself is implemented in the Go programming language.  The 'shell' 
 
 At a high level:
 
-1. The operator controller is responsible for managing the IBMSecurityVerify custom resource and starting the HTTP server;
-2. The webhook controller is responsible for augmenting the 'Ingress' definitions with the required annotations to configure the Nginx Ingress controller for OIDC authentication.
-3. The OIDC controller is responsible for managing the OIDC RP authentication process.
+1. The operator controller is responsible for managing the IBMSecurityVerify custom resource.
+2. The ingress webhook is responsible for:
+	1. Validating that the Verify secret specified in the IBMSecurityVerify custom resource is valid.
+	2. Augmenting the 'Ingress' definitions with the required annotations to configure the Nginx Ingress controller for OIDC authentication.
+3. The OIDC server is responsible for managing the OIDC RP authentication process.
 
 ![Operator Design](images/OperatorDesign.png)
 
 ## Operator Controller
 
-The operator controller is pretty simple.  It will just:
-
-1. Start the HTTP server;
-2. Watch for IBMSecurityVerify custom resource requests.  When a new custom resource is created the operator will simply validate that the specified clientSecret field corresponds to a known secret, and that the secret contains the required fields.  The required fields include: `client_id`, `client_secret`, `discovery_endpoint`.
+The operator controller is essentially a no-op.  It defines the custom resource, but doesn't really do anything with the custom resource.
 
 A custom resource will look like the following:
 
@@ -28,57 +27,47 @@ apiVersion: ibm.com/v1
 kind: IBMSecurityVerify
 
 metadata:
-  name: ibm-security-verify
-  namespace: operators
+  name: test-tenant.verify.ibm.com
+  namespace: openshift-operators
 
 spec:
   # The name of the secret which contains the IBM Security Verify
   # client credentials.
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
 
-  # The root URL of the Nginx Ingress controller.
-  ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
+  # The lifetime, in seconds, for an authenticated session.  
+  sessionLifetime: 3600
+
+  # The URL path, within the Ingress service, for the Verify SSO server.
+  authPath: /verify-sso
+
+  # The URL to which a client will be redirected upon logout.    If no
+  # logout redirect URL is specified the server will not provide a mechanism
+  # to logout the user.  The logout URI is constructed by appending the
+  # '/logout' URL segment to the configured 'AuthPath'.
+  logoutRedirectURL: /logout_response
 ```
 
-## HTTP Server
+## Ingress Webhook
 
-The HTTP server is responsible for receiving Web requests from the Kubernetes admissions controller (aka webhooks), along with requests used during OIDC authentication.
+The Webhook is responsible for:
 
-### HTTP Server Certificate
-
-The certificate for the HTTP server will be stored in the `ibm-security-verify-operator` secret.  The secret will have two fields: 
-
-|Field|Description
-|-----|-----------
-|tls.cert|The server certificate which is used by the HTTP server.
-|tls.key|The private key which is used by the HTTP server.
-
-When the operator is first started it will look for the presence of this secret.  If the secret is present it will start the HTTP server using the provided key and certificate.  If the secret is not present it will create a new signed certificate, create the secret and then add the certificate information to the secret.
-
-A description of how to create the signed certificate can be found at the following locations:
-
-* [https://medium.com/@elfakharany/automate-kubernetes-user-creation-using-the-native-go-client-e2d20dcdc9de](https://medium.com/@elfakharany/automate-kubernetes-user-creation-using-the-native-go-client-e2d20dcdc9de)
-* [https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec](https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec)
-
-It is important to note that the certificate must be signed by the Kubernetes signing server, otherwise it is not trusted as a Webhook controller.
-
-## Webhook Controller
-
-The Webhook controller is responsible for intercepting the creation of Ingress definitions and if the 'verify.ibm.com/app.name' annotation is present it will:
-
-1. Check to see if the application has been registered with Verify, searching for a secret which has the 'product' label set to 'ibm-security-verify' and a matching 'client\_name' field.  If the secret does not currently exist it will:
-	1. Register the application with Verify for the tenant which is contained in the custom resource corresponding to the 'verify.ibm.com/cr.name' annotation.  If the annotation is missing the tenant located in the first located 'IBMSecurityVerify' custom resource will be used.
+1. Watching for IBMSecurityVerify custom resource requests.  When a new custom resource is created the operator will validate that the specified `clientSecret` field corresponds to a known secret, and that the secret contains the required fields.  The required fields include: `client_name`, `client_id`, `client_secret`, `discovery_endpoint`.
+2. Intercept the creation of Ingress definitions, and if the `verify.ibm.com/app.name` annotation is present it will:
+	1. Check to see if the application has been registered with Verify, searching for a secret which has the 'product' label set to 'ibm-security-verify' and a matching 'client\_name' field.  If the secret does not currently exist it will:
 	
-	2. Save the generated client ID and secret to a new Kubernetes secret.
+		1. Register the application with Verify for the tenant which is contained in the custom resource corresponding to the `verify.ibm.com/cr.name` annotation.  If the annotation is missing the tenant located in the first located 'IBMSecurityVerify' custom resource will be used.
 	
-	> Details on dynamic client registration can be found at the following URLs:
-   > 
-   >   - [https://www.ibm.com/docs/en/security-verify?topic=applications-openid-connect-dynamic-client-registration#t_dynamic_kc](https://www.ibm.com/docs/en/security-verify?topic=applications-openid-connect-dynamic-client-registration#t_dynamic_kc)
-   >   - [https://docs.verify.ibm.com/verify/reference/handledeviceauthorize#handleclientregistrationpost ](https://docs.verify.ibm.com/verify/reference/handledeviceauthorize#handleclientregistrationpost)
+		2. Save the generated client ID and secret to a new Kubernetes secret.
+	
+		> Details on dynamic client registration can be found at the following URLs:
+	   > 
+	   >   - [https://www.ibm.com/docs/en/security-verify?topic=applications-openid-connect-dynamic-client-registration#t_dynamic_kc](https://www.ibm.com/docs/en/security-verify?topic=applications-openid-connect-dynamic-client-registration#t_dynamic_kc)
+	   >   - [https://docs.verify.ibm.com/verify/reference/handledeviceauthorize#handleclientregistrationpost ](https://docs.verify.ibm.com/verify/reference/handledeviceauthorize#handleclientregistrationpost)
 
-2. Add the annotations, via a PATCH operation, to configure the Nginx Ingress operator to call out to the OIDC controller to perform OIDC authentication.
+	2. Add the annotations, via a PATCH operation, to configure the Nginx Ingress operator to call out to the OIDC server to perform OIDC authentication.
 
-> The following blog contains a good description on how to create a mutating Webhook controller: [https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec](https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec)
+	> The following blog contains a good description on how to create a mutating Webhook controller: [https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec](https://medium.com/ovni/writing-a-very-basic-kubernetes-mutating-admission-webhook-398dbbcb63ec)
 
 ### Nginx Annotations
 
@@ -91,29 +80,32 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.org/server-snippets: |
-            location = /verify-oidc {
-                internal;
-                
-                proxy_pass https://ibm-security-verify-operator/oidc;
-                proxy_pass_request_body off;
-                
-                proxy_set_header Content-Length "";
-                proxy_set_header X-Real-IP $remote_addr;
-                proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                proxy_set_header X-Forwarded-Proto $scheme;
+	   location = /verify-sso {
+        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/auth;
+        proxy_pass_request_body off;
+	
+        proxy_set_header Content-Length "";
+        proxy_set_header X-Namespace default;
+        proxy_set_header X-Verify-Secret ibm-security-verify-client-85f8a46b-3e65-407d-b9fd-a841f44a39ca;
+        proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
+      }
 
-                # these return values are passed to the @error401 call
-                auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
-                auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
-                auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
-            }
-  
-            error_page 401 = @error401;
+      error_page 401 = @error401;
 
-            # If the user is not logged in, redirect them to the login URL
-            location @error401 {
-                return 302 https://ibm-security-verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&verify-secret=<secret-name>;
-            }
+      # If the user is not logged in, redirect them to the login URL
+      location @error401 {
+        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/login?url=$scheme://$http_host$request_uri;
+
+        proxy_set_header X-Namespace default;
+        proxy_set_header X-Verify-Secret ibm-security-verify-client-85f8a46b-3e65-407d-b9fd-a841f44a39ca;
+        proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
+      }
+
+      location = /verify-sso/logout {
+        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/logout;
+
+        proxy_set_header X-Logout-Redirect http://www.google.com;
+      }
             
     nginx.org/location-snippets: |
             auth_request /verify-oidc;
@@ -121,18 +113,21 @@ metadata:
 ```
 
 
-## OIDC Controller
+## OIDC Server
 
-The OIDC controller is responsible for the managing of the OIDC authentication flow.  The flow is desribed in the following scenario diagram:
+The OIDC server is responsible for the managing of the OIDC authentication flow.  The flow is desribed in the following scenario diagram:
 
-[![Authentication Flow](images/AuthFlow.png)](https://mermaid-js.github.io/mermaid-live-editor/edit##eyJjb2RlIjoic2VxdWVuY2VEaWFncmFtXG5wYXJ0aWNpcGFudCBVc2VyXG5wYXJ0aWNpcGFudCBJbmdyZXNzIGFzIE5naW54IEluZ3Jlc3NcbnBhcnRpY2lwYW50IE9wZXJhdG9yIGFzIFZlcmlmeSBPcGVyYXRvclxucGFydGljaXBhbnQgQXBwbGljYXRpb25cbnBhcnRpY2lwYW50IFZlcmlmeVxuICAgIFVzZXItPj4rSW5ncmVzczogUmVzb3VyY2UgUmVxdWVzdFxuICAgIG5vdGUgb3ZlciBJbmdyZXNzOiBOZ2lueCBkZXRlY3RzIHRoYXQgPGJyPmF1dGhlbnRpY2F0aW9uIGlzIHJlcXVpcmVkLlxuICAgIEluZ3Jlc3MtPj5PcGVyYXRvcjogR0VUIC92ZXJpZnktb2lkYy9jaGVja1xuICAgIGFjdGl2YXRlIE9wZXJhdG9yXG4gICAgT3BlcmF0b3ItPj5JbmdyZXNzOiAzMDIgL3ZlcmlmeS1vaWRjL2F1dGhcbiAgICBJbmdyZXNzLT4-T3BlcmF0b3I6IEdFVCAvdmVyaWZ5LW9pZGMvYXV0aFxuICAgIG5vdGUgcmlnaHQgb2YgT3BlcmF0b3I6IFRoZSBvcGVyYXRvciBnZW5lcmF0ZXMgPGJyPnRoZSBPSURDIHJlcXVlc3QuXG4gICAgT3BlcmF0b3ItPj5Vc2VyOiAzMDIgUmVkaXJlY3RcbiAgICBkZWFjdGl2YXRlIE9wZXJhdG9yXG4gICAgVXNlci0-PitWZXJpZnk6IEF1dGhvcml6YXRpb24gRW5kcG9pbnRcbiAgICBub3RlIHJpZ2h0IG9mIFZlcmlmeTogVmVyaWZ5IHBlcmZvcm1zIDxicj5hdXRoZW50aWNhdGlvblxuICAgIFZlcmlmeS0-Pi1Vc2VyOiAzMDIgUmVkaXJlY3RcbiAgICBVc2VyLT4-K09wZXJhdG9yOiBHRVQgL3ZlcmlmeS1vaWRjL2F1dGhcbiAgICBPcGVyYXRvci0-PitWZXJpZnk6IFRva2VuIEVuZHBvaW50XG4gICAgVmVyaWZ5LT4-LU9wZXJhdG9yOiBUb2tlbnNcbiAgICBub3RlIHJpZ2h0IG9mIE9wZXJhdG9yOiBUaGUgb3BlcmF0b3IgdmFsaWRhdGVzPGJyPnRoZSB0b2tlblxuICAgIE9wZXJhdG9yLT4-LVVzZXI6IDMwMiBSZWRpcmVjdFxuICAgIFVzZXItPj4rQXBwbGljYXRpb246IFJlc291cmNlIFJlcXVlc3RcbiAgICBBcHBsaWNhdGlvbi0-Pi1Vc2VyOiBSZXNvdXJjZSBSZXNwb25zZVxuICAgICAgICAgICAgIiwibWVybWFpZCI6IntcbiAgXCJ0aGVtZVwiOiBcImRlZmF1bHRcIlxufSIsInVwZGF0ZUVkaXRvciI6ZmFsc2UsImF1dG9TeW5jIjp0cnVlLCJ1cGRhdGVEaWFncmFtIjpmYWxzZX0)
+[![Authentication Flow](images/AuthFlow.png)](https://mermaid-js.github.io/mermaid-live-editor/edit/#eyJjb2RlIjoic2VxdWVuY2VEaWFncmFtXG5wYXJ0aWNpcGFudCBVc2VyXG5wYXJ0aWNpcGFudCBJbmdyZXNzIGFzIE5naW54IEluZ3Jlc3NcbnBhcnRpY2lwYW50IE9wZXJhdG9yIGFzIFZlcmlmeSBPcGVyYXRvclxucGFydGljaXBhbnQgQXBwbGljYXRpb25cbnBhcnRpY2lwYW50IFZlcmlmeVxuICAgIFVzZXItPj4rSW5ncmVzczogUmVzb3VyY2UgUmVxdWVzdFxuICAgIG5vdGUgb3ZlciBJbmdyZXNzOiBOZ2lueCBkZXRlY3RzIHRoYXQgPGJyPmF1dGhlbnRpY2F0aW9uIGlzIHJlcXVpcmVkLlxuICAgIEluZ3Jlc3MtPj5PcGVyYXRvcjogR0VUIC92ZXJpZnktb2lkYy9hdXRoXG4gICAgYWN0aXZhdGUgT3BlcmF0b3JcbiAgICBPcGVyYXRvci0-PkluZ3Jlc3M6IDQwMSBGb3JiaWRkZW5cbiAgICBJbmdyZXNzLT4-T3BlcmF0b3I6IEdFVCAvdmVyaWZ5LW9pZGMvbG9naW5cbiAgICBub3RlIHJpZ2h0IG9mIE9wZXJhdG9yOiBUaGUgb3BlcmF0b3IgZ2VuZXJhdGVzIDxicj50aGUgT0lEQyByZXF1ZXN0LlxuICAgIE9wZXJhdG9yLT4-VXNlcjogMzAyIFJlZGlyZWN0XG4gICAgZGVhY3RpdmF0ZSBPcGVyYXRvclxuICAgIFVzZXItPj4rVmVyaWZ5OiBBdXRob3JpemF0aW9uIEVuZHBvaW50XG4gICAgbm90ZSByaWdodCBvZiBWZXJpZnk6IFZlcmlmeSBwZXJmb3JtcyA8YnI-YXV0aGVudGljYXRpb25cbiAgICBWZXJpZnktPj4tVXNlcjogMzAyIFJlZGlyZWN0XG4gICAgVXNlci0-PitPcGVyYXRvcjogR0VUIC92ZXJpZnktb2lkYy9hdXRoXG4gICAgT3BlcmF0b3ItPj4rVmVyaWZ5OiBUb2tlbiBFbmRwb2ludFxuICAgIFZlcmlmeS0-Pi1PcGVyYXRvcjogVG9rZW5zXG4gICAgbm90ZSByaWdodCBvZiBPcGVyYXRvcjogVGhlIG9wZXJhdG9yIHZhbGlkYXRlczxicj50aGUgdG9rZW5cbiAgICBPcGVyYXRvci0-Pi1Vc2VyOiAzMDIgUmVkaXJlY3RcbiAgICBVc2VyLT4-K0luZ3Jlc3M6IFJlc291cmNlIFJlcXVlc3RcbiAgICBhY3RpdmF0ZSBVc2VyXG4gICAgbm90ZSBvdmVyIEluZ3Jlc3M6IE5naW54IGRldGVjdHMgdGhhdCA8YnI-YXV0aGVudGljYXRpb24gaXMgcmVxdWlyZWQuXG4gICAgSW5ncmVzcy0-Pk9wZXJhdG9yOiBHRVQgL3ZlcmlmeS1vaWRjL2F1dGhcbiAgICBPcGVyYXRvci0-PkluZ3Jlc3M6IDIwMCBPS1xuICAgIEluZ3Jlc3MtPj5BcHBsaWNhdGlvbjogUmVzb3VyY2UgUmVxdWVzdFxuICAgIEFwcGxpY2F0aW9uLT4-VXNlcjogUmVzb3VyY2UgUmVzcG9uc2VcbiAgICBkZWFjdGl2YXRlIFVzZXJcbiAgICAgICAgICAgICIsIm1lcm1haWQiOiJ7XG4gIFwidGhlbWVcIjogXCJkZWZhdWx0XCJcbn0iLCJ1cGRhdGVFZGl0b3IiOmZhbHNlLCJhdXRvU3luYyI6dHJ1ZSwidXBkYXRlRGlhZ3JhbSI6ZmFsc2V9)
 
 The following endpoints are used by the controller:
 
 |Endpoint|Description
 |--------|-----------
-|/verify-oidc/check|This is just the kick-off URL for the authentication processing.  It won't do anything by return a 401 so that Nginx will redirect the processing to the '/verify-oidc/auth' endpoint.
-|/verify-oidc/auth|This endpoint is the main endpoint for the authentication processing.  It will handle the generation of the redirect to IBM Security Verify for authentication, and the validation of the supplied OIDC JWT after the authentication has completed.
+|/check|This URL will simply check to see if the user is currently authenticated or not.  If they are not authenticated they will be redirected to '/login.
+|/login|This is the kick-off URL for the authentication processing.  It will handle the generation of the redirect to IBM Security Verify for authentication.
+|/auth|This endpoint is the main endpoint for the authentication processing.  It will mostly handle the validation of the supplied OIDC JWT after the authentication has completed.
+|/logout|This endpoint will log out the current authenticated session.
+
 
 The [Vouch Proxy](https://github.com/vouch/vouch-proxy) project contains an example OIDC-RP implementation which can be referenced for the implementation of this controller.  The [github.com/coreos/go-oidc](https://pkg.go.dev/github.com/coreos/go-oidc#section-readme) package will be used to handle the OIDC specific processing.
 

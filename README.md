@@ -56,8 +56,11 @@ The following diagram depicts the components which are used in the environment. 
 
 OpenID Connect (OIDC) is used in the environment to pass single sign-on information from IBM Security Verify into the OpenShift environment.  The OIDC specification states that authentication can follow one of three paths: the Authorization Code Flow, the Implicit Flow, or the Hybrid Flow. The flow determines how the ID Token and Access Token are returned to the Client. The IBM Security Verify operator will only support the Authorization Code Flow, and the overall flow, incorporating single sign-on from IBM Security Verify, is described in the following scenario diagram.
 
-[![Authentication Flow](docs/images/AuthFlow.png)](https://mermaid-js.github.io/mermaid-live-editor/edit##eyJjb2RlIjoic2VxdWVuY2VEaWFncmFtXG5wYXJ0aWNpcGFudCBVc2VyXG5wYXJ0aWNpcGFudCBJbmdyZXNzIGFzIE5naW54IEluZ3Jlc3NcbnBhcnRpY2lwYW50IE9wZXJhdG9yIGFzIFZlcmlmeSBPcGVyYXRvclxucGFydGljaXBhbnQgQXBwbGljYXRpb25cbnBhcnRpY2lwYW50IFZlcmlmeVxuICAgIFVzZXItPj4rSW5ncmVzczogUmVzb3VyY2UgUmVxdWVzdFxuICAgIG5vdGUgb3ZlciBJbmdyZXNzOiBOZ2lueCBkZXRlY3RzIHRoYXQgPGJyPmF1dGhlbnRpY2F0aW9uIGlzIHJlcXVpcmVkLlxuICAgIEluZ3Jlc3MtPj5PcGVyYXRvcjogR0VUIC92ZXJpZnktb2lkYy9jaGVja1xuICAgIGFjdGl2YXRlIE9wZXJhdG9yXG4gICAgT3BlcmF0b3ItPj5JbmdyZXNzOiAzMDIgL3ZlcmlmeS1vaWRjL2F1dGhcbiAgICBJbmdyZXNzLT4-T3BlcmF0b3I6IEdFVCAvdmVyaWZ5LW9pZGMvYXV0aFxuICAgIG5vdGUgcmlnaHQgb2YgT3BlcmF0b3I6IFRoZSBvcGVyYXRvciBnZW5lcmF0ZXMgPGJyPnRoZSBPSURDIHJlcXVlc3QuXG4gICAgT3BlcmF0b3ItPj5Vc2VyOiAzMDIgUmVkaXJlY3RcbiAgICBkZWFjdGl2YXRlIE9wZXJhdG9yXG4gICAgVXNlci0-PitWZXJpZnk6IEF1dGhvcml6YXRpb24gRW5kcG9pbnRcbiAgICBub3RlIHJpZ2h0IG9mIFZlcmlmeTogVmVyaWZ5IHBlcmZvcm1zIDxicj5hdXRoZW50aWNhdGlvblxuICAgIFZlcmlmeS0-Pi1Vc2VyOiAzMDIgUmVkaXJlY3RcbiAgICBVc2VyLT4-K09wZXJhdG9yOiBHRVQgL3ZlcmlmeS1vaWRjL2F1dGhcbiAgICBPcGVyYXRvci0-PitWZXJpZnk6IFRva2VuIEVuZHBvaW50XG4gICAgVmVyaWZ5LT4-LU9wZXJhdG9yOiBUb2tlbnNcbiAgICBub3RlIHJpZ2h0IG9mIE9wZXJhdG9yOiBUaGUgb3BlcmF0b3IgdmFsaWRhdGVzPGJyPnRoZSB0b2tlblxuICAgIE9wZXJhdG9yLT4-LVVzZXI6IDMwMiBSZWRpcmVjdFxuICAgIFVzZXItPj4rQXBwbGljYXRpb246IFJlc291cmNlIFJlcXVlc3RcbiAgICBBcHBsaWNhdGlvbi0-Pi1Vc2VyOiBSZXNvdXJjZSBSZXNwb25zZVxuICAgICAgICAgICAgIiwibWVybWFpZCI6IntcbiAgXCJ0aGVtZVwiOiBcImRlZmF1bHRcIlxufSIsInVwZGF0ZUVkaXRvciI6ZmFsc2UsImF1dG9TeW5jIjp0cnVlLCJ1cGRhdGVEaWFncmFtIjpmYWxzZX0)
+[![Authentication Flow](docs/images/AuthFlow.png)](https://mermaid-js.github.io/mermaid-live-editor/edit/#eyJjb2RlIjoic2VxdWVuY2VEaWFncmFtXG5wYXJ0aWNpcGFudCBVc2VyXG5wYXJ0aWNpcGFudCBJbmdyZXNzIGFzIE5naW54IEluZ3Jlc3NcbnBhcnRpY2lwYW50IE9wZXJhdG9yIGFzIFZlcmlmeSBPcGVyYXRvclxucGFydGljaXBhbnQgQXBwbGljYXRpb25cbnBhcnRpY2lwYW50IFZlcmlmeVxuICAgIFVzZXItPj4rSW5ncmVzczogUmVzb3VyY2UgUmVxdWVzdFxuICAgIG5vdGUgb3ZlciBJbmdyZXNzOiBOZ2lueCBkZXRlY3RzIHRoYXQgPGJyPmF1dGhlbnRpY2F0aW9uIGlzIHJlcXVpcmVkLlxuICAgIEluZ3Jlc3MtPj5PcGVyYXRvcjogR0VUIC9jaGVja1xuICAgIGFjdGl2YXRlIE9wZXJhdG9yXG4gICAgT3BlcmF0b3ItPj5JbmdyZXNzOiAzMDIgL2xvZ2luXG4gICAgSW5ncmVzcy0-Pk9wZXJhdG9yOiBHRVQgL2xvZ2luXG4gICAgbm90ZSByaWdodCBvZiBPcGVyYXRvcjogVGhlIG9wZXJhdG9yIGdlbmVyYXRlcyA8YnI-dGhlIE9JREMgcmVxdWVzdC5cbiAgICBPcGVyYXRvci0-PlVzZXI6IDMwMiBSZWRpcmVjdFxuICAgIGRlYWN0aXZhdGUgT3BlcmF0b3JcbiAgICBVc2VyLT4-K1ZlcmlmeTogQXV0aG9yaXphdGlvbiBFbmRwb2ludFxuICAgIG5vdGUgcmlnaHQgb2YgVmVyaWZ5OiBWZXJpZnkgcGVyZm9ybXMgPGJyPmF1dGhlbnRpY2F0aW9uXG4gICAgVmVyaWZ5LT4-LVVzZXI6IDMwMiBSZWRpcmVjdFxuICAgIFVzZXItPj4rT3BlcmF0b3I6IEdFVCAvYXV0aFxuICAgIE9wZXJhdG9yLT4-K1ZlcmlmeTogVG9rZW4gRW5kcG9pbnRcbiAgICBWZXJpZnktPj4tT3BlcmF0b3I6IFRva2Vuc1xuICAgIG5vdGUgcmlnaHQgb2YgT3BlcmF0b3I6IFRoZSBvcGVyYXRvciB2YWxpZGF0ZXM8YnI-dGhlIHRva2VuXG4gICAgT3BlcmF0b3ItPj4tVXNlcjogMzAyIFJlZGlyZWN0XG4gICAgVXNlci0-PitBcHBsaWNhdGlvbjogUmVzb3VyY2UgUmVxdWVzdFxuICAgIEFwcGxpY2F0aW9uLT4-LVVzZXI6IFJlc291cmNlIFJlc3BvbnNlXG4gICAgICAgICAgICAiLCJtZXJtYWlkIjoie1xuICBcInRoZW1lXCI6IFwiZGVmYXVsdFwiXG59IiwidXBkYXRlRWRpdG9yIjpmYWxzZSwiYXV0b1N5bmMiOnRydWUsInVwZGF0ZURpYWdyYW0iOmZhbHNlfQ)
 
+### Logout
+
+It is possible to logout an authenticated session by sending a GET request to the '/logout' URL segment within the configured authentication URL.  For example, if the `AuthURL` field within the IBMSecurityVerify custom resource is set to `/verify-sso` the logout URI would be: `/verify-sso/logout`.  Upon successful logout the user will be redirected to the logout redirect URL which is specified in the IBMSecurityVerify custom resource.  Please note that if a logout redirect URL is not specified in the custom resource the logout mechanism is disabled.
 
 ## Installation
 
@@ -147,15 +150,24 @@ kind: IBMSecurityVerify
 
 metadata:
   name: verify-test-tenant
-  namespace: operators
+  namespace: openshift-operators
 
 spec:
   # The name of the secret which contains the IBM Security Verify
   # client credentials.
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   
-  # The root URL of the Nginx Ingress controller.
-  ingressRoot: https://my-nginx-ingress.apps.acme.ibm.com
+  # The lifetime, in seconds, for an authenticated session.  
+  sessionLifetime: 3600
+
+  # The URL path, within the Ingress service, for the Verify SSO server.
+  authPath: /verify-sso
+
+  # The URL to which a client will be redirected upon logout.    If no
+  # logout redirect URL is specified the server will not provide a mechanism
+  # to logout the user.  The logout URI is constructed by appending the
+  # '/logout' URL segment to the configured 'AuthPath'.
+  logoutRedirectURL: /logout_response
 ```
 
 The following command can be used to create the custom resource from this file:
@@ -183,7 +195,7 @@ When registering the application the operator will use the following fields:
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
 |User consent|The user consent field, as obtained from the corresponding annotation in the Ingress definition.
-|Redirect URIs|https://\<nginx-ingress-url\>/verify-oidc/auth
+|Redirect URIs|The valid redirect URL's, obtained from the `Host` fields within the rules of the Ingress definition.
 
 #### Manual Registration
 
@@ -196,7 +208,7 @@ The following fields should be set when registering the application:
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
 |Client authentication method|Client secret basic
-|Redirect URIs|https://\<nginx-ingress-url\>/verify/auth
+|Redirect URIs|https://\<nginx-ingress-url\>/\<CR AuthPath\>
 
 Once the application has been registered a new secret will need to be created in the same OpenShift namespace as the IBM Security Verify operator.  The name of the secret should be of the format: 'ibm\-security\-verify\-client\-\<client\-id>', and consist of the following fields:
 
@@ -243,10 +255,12 @@ When creating an Ingress resource a few additional metadata annotations must be 
 
 |Annotation|Description|Required
 |----------|-----------|--------
+|kubernetes.io/ingress.class|The class of the Nginx operator which is to be used - as defined by the Nginx Ingress Controller custom resource.  If this annotation is not specified it will default to a class of `nginx`.|No
 |verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  Existing secrets will be searched for a 'product' label of 'ibm-security-verify' and a matching 'client\_name'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| Yes
 |verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.| Required if the application has not already been registered.
-|verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | Required if the application has not already been registered.
+|verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | No
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
+|verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -261,6 +275,7 @@ metadata:
     verify.ibm.com/cr.name: "verify-test-tenant"
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
     verify.ibm.com/consent.action: "always_prompt"
+    verify.ibm.com/protocol: "https"
 spec:
   rules:
   - host: my-nginx-ingress.apps.acme.ibm.com
@@ -277,3 +292,5 @@ The following command can be used to create the Ingress definition from this fil
 ```shell
 oc apply -f testapp.yaml
 ```
+
+By adding these additional annotations to the Ingress definition the operator will ensure that the client has been authenticated against IBM Security Verify before allowing access to the service.  The operator will also insert the `X-REMOTE-USER` HTTP header into the request so that the service can be made aware of the name of the authenticated user.

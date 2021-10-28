@@ -40,9 +40,10 @@ import (
  */
 
 type ingressAnnotator struct {
-    client  client.Client
-    log     logr.Logger
-    decoder *admission.Decoder
+    client    client.Client
+    log       logr.Logger
+    decoder   *admission.Decoder
+    namespace string
 }
 
 /*
@@ -57,65 +58,45 @@ type Endpoints struct {
 /*****************************************************************************/
 
 /*
- * Constants....
- */
-
-/*
- * Annotation keys.
- */
-
-const appNameKey           = "verify.ibm.com/app.name"
-const appUrlKey            = "verify.ibm.com/app.url"
-const crNameKey            = "verify.ibm.com/cr.name"
-const consentKey           = "verify.ibm.com/consent.action"
-
-/*
- * Secret keys.
- */
-
-const productKey           = "product"
-const clientNameKey        = "client_name"
-const clientIdKey          = "client_id"
-const clientSecretKey      = "client_secret"
-const discoveryEndpointKey = "discovery_endpoint"
-const secretNamePrefix     = "ibm-security-verify-client-"
-const productName          = "ibm-security-verify"
-
-/*
- * Registration constants.
- */
-
-const defaultConsentAction = "always_prompt"
-const oidcAuthUri          = "/verify-oidc/auth"
-
-/*
  * The main Nginx annotation.
  */
 
-const nginxAnnotation = `location = /verify-oidc {
-  internal;
-
-  proxy_pass https://ibm-security-verify-operator/oidc;
+const nginxServerAnnotation = `location = %s {
+  proxy_pass %s%s;
   proxy_pass_request_body off;
 
   proxy_set_header Content-Length "";
-  proxy_set_header X-Real-IP $remote_addr;
-  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-  proxy_set_header X-Forwarded-Proto $scheme;
-
-  # these return values are passed to the @error401 call
-  auth_request_set $auth_resp_jwt $upstream_http_x_vouch_jwt;
-  auth_request_set $auth_resp_err $upstream_http_x_vouch_err;
-  auth_request_set $auth_resp_failcount $upstream_http_x_vouch_failcount;
+  proxy_set_header %s %s;
+  proxy_set_header %s %s;
+  proxy_set_header %s $scheme://$http_host%s;
 }
 
 error_page 401 = @error401;
 
 # If the user is not logged in, redirect them to the login URL
 location @error401 {
-  return 302 https://ibm-security-verify-operator/verify-oidc/auth?url=https://$http_host$request_uri&vouch-failcount=$auth_resp_failcount&X-Vouch-Token=$auth_resp_jwt&error=$auth_resp_err&namespace=%s&verify-secret=%s;
+  proxy_pass %s%s?%s=$scheme://$http_host$request_uri;
+
+  proxy_set_header %s %s;
+  proxy_set_header %s %s;
+  proxy_set_header %s $scheme://$http_host%s;
+}
+
+%s
+`
+
+const nginxLogoutLocationAnnotation = `location = %s/logout {
+  proxy_pass %s/logout;
+
+  proxy_set_header %s %s;
 }
 `
+
+const nginxLocationAnnotation = `auth_request %s;
+auth_request_set $auth_username $upstream_http_x_username;
+proxy_set_header X-Remote-User $auth_username;
+`
+
 /*****************************************************************************/
 
 /*
@@ -174,12 +155,22 @@ func (a *ingressAnnotator) Handle(
     }
 
     /*
+     * Retrieve the custom resource which should be used.
+     */
+
+    cr, err := a.RetrieveCR(ingress)
+
+    if err != nil {
+        return admission.Errored(http.StatusBadRequest, err)
+    }
+
+    /*
      * If the secret has not been located so we need to register the application
      * and create the secret now.
      */
 
     if secret == nil {
-        secret, err = a.RegisterApplication(appName, ingress)
+        secret, err = a.RegisterApplication(appName, cr, ingress)
 
         if err != nil {
             a.log.Error(err, "Failed to register the application.", 
@@ -193,7 +184,7 @@ func (a *ingressAnnotator) Handle(
      * Add the annotation to the ingress.
      */
 
-    err = a.AddAnnotations(ingress, secret.Namespace, secret.Name)
+    err = a.AddAnnotations(cr, ingress, secret.Namespace, secret.Name)
 
     if err != nil {
         a.log.Error(err, 
@@ -318,31 +309,17 @@ func (a *ingressAnnotator) ValidateSecret(secret *apiv1.Secret) (error) {
 
 func (a *ingressAnnotator) RegisterApplication(
                     appName string,
+                    cr      *ibmv1.IBMSecurityVerify,
                     ingress *netv1.Ingress) (*apiv1.Secret, error) {
 
     a.log.Info("RegisterApplication", 
                     "name", appName, "annotations", ingress.Annotations)
 
     /*
-     * Verify that the app.url annotation exists.
+     * Retrieve the app.url annotation.
      */
 
-    appUrl, found := ingress.Annotations[appUrlKey]
-
-    if !found {
-        return nil, errors.New(
-            fmt.Sprintf("A required annotation, %s, is missing.", appUrlKey))
-    }
-
-    /*
-     * Retrieve the custom resource which should be used.
-     */
-
-    cr, err := a.RetrieveCR(ingress)
-
-    if err != nil {
-        return nil, err
-    }
+    appUrl, _ := ingress.Annotations[appUrlKey]
 
     /*
      * Now that we have the appropriate custom resource we need to load the
@@ -351,7 +328,7 @@ func (a *ingressAnnotator) RegisterApplication(
 
     clientSecret := &apiv1.Secret{}
 
-    err = a.client.Get(context.TODO(), 
+    err := a.client.Get(context.TODO(), 
                 client.ObjectKey{
                     Namespace: ingress.Namespace,
                     Name:      cr.Spec.ClientSecret,
@@ -470,19 +447,55 @@ func (a *ingressAnnotator) RetrieveCR(
  */
 
 func (a *ingressAnnotator) AddAnnotations(
+                    cr        *ibmv1.IBMSecurityVerify,
                     ingress   *netv1.Ingress,
                     namespace string,
                     name      string) (error) {
 
     /*
-     * Add some new annotations.
+     * Add the ingress class annotation.
      */
 
-    ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
+    if _, ok := ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
+        ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
+    }
+
+    /*
+     * Add the location snippets for the Ingress resource.
+     */
+
     ingress.Annotations["nginx.org/location-snippets"] = 
-                                    "auth_request /verify-oidc;"
+        fmt.Sprintf(nginxLocationAnnotation, cr.Spec.AuthPath)
+
+    /*
+     * Add the server snippets for the Ingress resource.
+     */
+
+    oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
+                            ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
+
+    logoutAnnotation := ""
+    if cr.Spec.LogoutRedirectURL != "" {
+        logoutAnnotation = fmt.Sprintf(nginxLogoutLocationAnnotation, 
+            cr.Spec.AuthPath,                             // logout location
+            oidcRoot,                                     // proxy_pass
+            logoutRedirectHdr, cr.Spec.LogoutRedirectURL, // redirect header
+        )
+    }
+
     ingress.Annotations["nginx.org/server-snippets"]   = 
-                    fmt.Sprintf(nginxAnnotation, namespace, name)
+        fmt.Sprintf(nginxServerAnnotation, 
+            cr.Spec.AuthPath,             // authentication location
+            oidcRoot, authUri,            // proxy_pass for the auth call
+            namespaceHdr, namespace,      // namespace header
+            verifySecretHdr, name,        // verify secret header
+            urlRootHdr, cr.Spec.AuthPath, // URL root header
+            oidcRoot, loginUri, urlArg,   // proxy_pass for the 401
+            namespaceHdr, namespace,      // namespace header
+            verifySecretHdr, name,        // verify secret header
+            urlRootHdr, cr.Spec.AuthPath, // URL root header
+            logoutAnnotation,             // Logout location
+        )
 
     /*
      * Remove some existing annotations which are no longer required.
@@ -493,6 +506,7 @@ func (a *ingressAnnotator) AddAnnotations(
         appUrlKey,
         crNameKey,
         consentKey,
+        protocolKey,
     }
 
     for _, field := range fields {
@@ -689,6 +703,22 @@ func (a *ingressAnnotator) RegisterWithVerify(
     }
 
     /*
+     * Work out whether a protocol has been supplied.
+     */
+
+    protocol, found := ingress.Annotations[protocolKey]
+
+    if !found {
+        protocol = defaultProtocol
+    } else {
+        if protocol != "http" && protocol != "https" && protocol != "both" {
+            return nil, errors.New(
+                fmt.Sprintf("An unexpected protocol was specified: %s/%s", 
+                        protocolKey, protocol))
+        }
+    }
+
+    /*
      * Construct the request body.
      */
 
@@ -701,9 +731,33 @@ func (a *ingressAnnotator) RegisterWithVerify(
         EnforcePkce      bool     `json:"enforce_pkce"`
     }
 
+    /*
+     * Construct the list of redirect URIs based on the Ingress specification.
+     */
+
+    var redirectUris []string
+
+    if ingress.Spec.Rules != nil && len(ingress.Spec.Rules) > 0 {
+        for _, rule := range ingress.Spec.Rules {
+            if protocol == "http" || protocol == "both" {
+                redirectUris = append(redirectUris, 
+                        fmt.Sprintf("http://%s%s", rule.Host, cr.Spec.AuthPath))
+            }
+
+            if protocol == "https" || protocol == "both" {
+                redirectUris = append(redirectUris, 
+                    fmt.Sprintf("https://%s%s", rule.Host, cr.Spec.AuthPath))
+            }
+        }
+    }
+
+    /*
+     * Construct the registration request.
+     */
+
     body := &Request {
         ClientName:       appName,
-        RedirectUris:     []string { cr.Spec.IngressRoot + oidcAuthUri },
+        RedirectUris:     redirectUris,
         ConsentAction:    consentAction,
         AllUsersEntitled: true,
         LoginUrl:         appUrl,
