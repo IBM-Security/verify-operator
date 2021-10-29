@@ -118,6 +118,7 @@ func (server *OidcServer) start() {
 
     mux := http.NewServeMux()
 
+    mux.HandleFunc(checkUri,  server.check)
     mux.HandleFunc(authUri,   server.authenticate)
     mux.HandleFunc(loginUri,  server.login)
     mux.HandleFunc(logoutUri, server.logout)
@@ -155,6 +156,44 @@ func (server *OidcServer) start() {
 /*****************************************************************************/
 
 /*
+ * This function is used to check to see if the user has already been 
+ * authenticated.
+ */
+
+func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
+
+    server.log.Info("Received check request.")
+
+    status := http.StatusUnauthorized
+
+    /*
+     * Retrieve the session for the user.
+     */
+
+    session, err := server.store.Get(r, sessionCookieName)
+
+    if err == nil {
+        /*
+         * Validate whether we have been authenticated or not.
+         */
+
+        user := server.GetSessionData(session, sessionUserKey)
+
+        if user != "" {
+            server.log.Info("User is authorized.", "user", user)
+
+            w.Header().Set("X-Username", user)
+
+            status = http.StatusNoContent
+        }
+    }
+
+    w.WriteHeader(status)
+}
+
+/*****************************************************************************/
+
+/*
  * This function is used to authenticate the user.  
  */
 
@@ -182,22 +221,13 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
     if code == "" {
 
         /*
-         * This is not an authentication request and so we now need to see
-         * if we have been authenticated or not.
+         * If we don't have an authorization code we bomb out now.
          */
 
-        user := server.GetSessionData(session, sessionUserKey)
+        server.log.Info("No authorization code was provided with the request.")
 
-        if user == "" {
-            server.log.Info("User is not currently authorized.")
-
-            w.WriteHeader(http.StatusUnauthorized)
-        } else {
-            server.log.Info("User is authorized.", "user", user)
-
-            w.Header().Set("X-Username", user)
-            w.WriteHeader(http.StatusNoContent)
-        }
+        http.Error(w, "No authorization code was provided with the request.",
+                        http.StatusBadRequest)
 
         return
     }

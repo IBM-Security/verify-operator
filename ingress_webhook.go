@@ -61,17 +61,31 @@ type Endpoints struct {
  * The main Nginx annotation.
  */
 
-const nginxServerAnnotation = `location = %s {
+const nginxServerAnnotation = `%s
+%s
+%s
+%s
+`
+
+const nginxCheckLocationAnnotation = `location = %s {
+  internal;
   proxy_pass %s%s;
   proxy_pass_request_body off;
 
   proxy_set_header Content-Length "";
+}
+`
+
+const nginxAuthLocationAnnotation = `location = %s {
+  proxy_pass %s%s;
+
   proxy_set_header %s %s;
   proxy_set_header %s %s;
   proxy_set_header %s $scheme://$http_host%s;
 }
+`
 
-error_page 401 = @error401;
+const nginx401LocationAnnotation = `error_page 401 = @error401;
 
 # If the user is not logged in, redirect them to the login URL
 location @error401 {
@@ -81,8 +95,6 @@ location @error401 {
   proxy_set_header %s %s;
   proxy_set_header %s $scheme://$http_host%s;
 }
-
-%s
 `
 
 const nginxLogoutLocationAnnotation = `location = %s/logout {
@@ -464,8 +476,10 @@ func (a *ingressAnnotator) AddAnnotations(
      * Add the location snippets for the Ingress resource.
      */
 
+    checkPath := fmt.Sprintf("%s%s", cr.Spec.AuthPath, checkUri)
+
     ingress.Annotations["nginx.org/location-snippets"] = 
-        fmt.Sprintf(nginxLocationAnnotation, cr.Spec.AuthPath)
+        fmt.Sprintf(nginxLocationAnnotation, checkPath)
 
     /*
      * Add the server snippets for the Ingress resource.
@@ -473,6 +487,26 @@ func (a *ingressAnnotator) AddAnnotations(
 
     oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
                             ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
+
+    checkAnnotations := fmt.Sprintf(nginxCheckLocationAnnotation,
+            checkPath,                     // check location
+            oidcRoot, checkUri,            // proxy_pass for the check call
+        )
+
+    authAnnotations := fmt.Sprintf(nginxAuthLocationAnnotation,
+            cr.Spec.AuthPath,             // authentication location
+            oidcRoot, authUri,            // proxy_pass for the auth call
+            namespaceHdr, namespace,      // namespace header
+            verifySecretHdr, name,        // verify secret header
+            urlRootHdr, cr.Spec.AuthPath, // URL root header
+        )
+
+    unauthAnnotations := fmt.Sprintf(nginx401LocationAnnotation,
+            oidcRoot, loginUri, urlArg,   // proxy_pass for the 401
+            namespaceHdr, namespace,      // namespace header
+            verifySecretHdr, name,        // verify secret header
+            urlRootHdr, cr.Spec.AuthPath, // URL root header
+        )
 
     logoutAnnotation := ""
     if cr.Spec.LogoutRedirectURL != "" {
@@ -485,16 +519,10 @@ func (a *ingressAnnotator) AddAnnotations(
 
     ingress.Annotations["nginx.org/server-snippets"]   = 
         fmt.Sprintf(nginxServerAnnotation, 
-            cr.Spec.AuthPath,             // authentication location
-            oidcRoot, authUri,            // proxy_pass for the auth call
-            namespaceHdr, namespace,      // namespace header
-            verifySecretHdr, name,        // verify secret header
-            urlRootHdr, cr.Spec.AuthPath, // URL root header
-            oidcRoot, loginUri, urlArg,   // proxy_pass for the 401
-            namespaceHdr, namespace,      // namespace header
-            verifySecretHdr, name,        // verify secret header
-            urlRootHdr, cr.Spec.AuthPath, // URL root header
-            logoutAnnotation,             // Logout location
+            checkAnnotations,
+            authAnnotations,
+            unauthAnnotations,
+            logoutAnnotation,
         )
 
     /*

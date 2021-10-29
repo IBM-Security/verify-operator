@@ -50,6 +50,7 @@ const sessionUrlKey     = "original-url"
  */
 
 const httpsPort         = 7443
+const checkUri          = "/check"
 const authUri           = "/auth"
 const loginUri          = "/login"
 const logoutUri         = "/logout"
