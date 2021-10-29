@@ -183,6 +183,12 @@ func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
 
             w.Header().Set("X-Username", user)
 
+            identity := server.GetSessionData(session, sessionIdTokenKey)
+
+            if identity != "" {
+                w.Header().Set(idTokenHdr, identity)
+            }
+
             status = http.StatusNoContent
         }
     }
@@ -320,12 +326,18 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
     }
 
     /*
-     * Save the user name to the session.
+     * Save the user name and ID token to the session.
      */
 
     session.Values[sessionUserKey] = claims.PreferredUsername
 
+    if server.includeIdToken(r) {
+        session.Values[sessionIdTokenKey] = rawIDToken;
+    }
+
     session.Options.MaxAge = server.sessionLifetime(r)
+
+    delete(session.Values, sessionStateKey)
 
     err = session.Save(r, w)
 
@@ -710,5 +722,21 @@ func (server *OidcServer) sessionLifetime(r *http.Request) (sessLifetime int) {
     return
 }
 
+/*****************************************************************************/
+
+/*
+ * Should we include the identity token in the session?
+ */
+
+func (server *OidcServer) includeIdToken(r *http.Request) (include bool) {
+    include    = false
+    hdrString := r.Header.Get(idTokenHdr)
+
+    if hdrString == "yes" {
+        include = true
+    }
+
+    return
+}
 /*****************************************************************************/
 

@@ -15,6 +15,7 @@ const appUrlKey            = "verify.ibm.com/app.url"
 const crNameKey            = "verify.ibm.com/cr.name"
 const consentKey           = "verify.ibm.com/consent.action"
 const protocolKey          = "verify.ibm.com/protocol"
+const idTokenKey           = "verify.ibm.com/idtoken.hdr"
 
 /*
  * Secret keys.
@@ -42,6 +43,7 @@ const defaultProtocol      = "https"
 const sessionCookieName = "verify-session"
 const sessionStateKey   = "state"
 const sessionUserKey    = "user"
+const sessionIdTokenKey = "identity"
 const sessionUrlKey     = "original-url"
 
 /*
@@ -61,6 +63,7 @@ const verifySecretHdr   = "X-Verify-Secret"
 const urlRootHdr        = "X-URL-Root"
 const logoutRedirectHdr = "X-Logout-Redirect"
 const sessLifetimeHdr   = "X-Session-Lifetime"
+const idTokenHdr        = "x_identity"
 
 /*****************************************************************************/
 

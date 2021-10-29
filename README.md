@@ -261,6 +261,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | No
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 |verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No
+|verify.ibm.com/idtoken.hdr|By default the operator will insert the user name into the HTTP stream in the `X_REMOTE_USER` header.  This annotation can be used to specify the HTTP header into which the entire identity token will be inserted.| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -276,6 +277,7 @@ metadata:
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
     verify.ibm.com/consent.action: "always_prompt"
     verify.ibm.com/protocol: "https"
+    verify.ibm.com/idtoken.hdr: "X-Identity"
 spec:
   rules:
   - host: my-nginx-ingress.apps.acme.ibm.com

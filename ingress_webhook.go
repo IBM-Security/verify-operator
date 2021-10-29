@@ -82,6 +82,7 @@ const nginxAuthLocationAnnotation = `location = %s {
   proxy_set_header %s %s;
   proxy_set_header %s %s;
   proxy_set_header %s %d;
+  proxy_set_header %s %s;
   proxy_set_header %s $scheme://$http_host%s;
 }
 `
@@ -109,6 +110,11 @@ const nginxLogoutLocationAnnotation = `location = %s/logout {
 const nginxLocationAnnotation = `auth_request %s;
 auth_request_set $auth_username $upstream_http_x_username;
 proxy_set_header X-Remote-User $auth_username;
+%s
+`
+
+const nginxIDTokenAnnotation = `auth_request_set $id_token $upstream_http_%s;
+proxy_set_header %s $id_token;
 `
 
 /*****************************************************************************/
@@ -475,13 +481,28 @@ func (a *ingressAnnotator) AddAnnotations(
     }
 
     /*
+     * Build up the ID Token annotation.
+     */
+
+    idTokenAnnotation := ""
+    useIdToken        := "no"
+
+    extIdTokenHdr, ok := ingress.Annotations[idTokenKey]
+
+    if ok {
+        idTokenAnnotation = fmt.Sprintf(nginxIDTokenAnnotation,
+                                            idTokenHdr, extIdTokenHdr)
+        useIdToken = "yes"
+    }
+
+    /*
      * Add the location snippets for the Ingress resource.
      */
 
     checkPath := fmt.Sprintf("%s%s", cr.Spec.AuthPath, checkUri)
 
     ingress.Annotations["nginx.org/location-snippets"] = 
-        fmt.Sprintf(nginxLocationAnnotation, checkPath)
+        fmt.Sprintf(nginxLocationAnnotation, checkPath, idTokenAnnotation)
 
     /*
      * Add the server snippets for the Ingress resource.
@@ -501,6 +522,7 @@ func (a *ingressAnnotator) AddAnnotations(
             namespaceHdr, namespace,                  // namespace header
             verifySecretHdr, name,                    // verify secret header
             sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
+            idTokenHdr, useIdToken,                   // use ID token header
             urlRootHdr, cr.Spec.AuthPath,             // URL root header
         )
 
@@ -539,6 +561,7 @@ func (a *ingressAnnotator) AddAnnotations(
         crNameKey,
         consentKey,
         protocolKey,
+        idTokenKey,
     }
 
     for _, field := range fields {
