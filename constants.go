@@ -40,7 +40,6 @@ const defaultProtocol      = "https"
  */
 
 const sessionCookieName = "verify-session"
-const sessionMaxAge     = 600
 const sessionStateKey   = "state"
 const sessionUserKey    = "user"
 const sessionUrlKey     = "original-url"
@@ -50,15 +49,18 @@ const sessionUrlKey     = "original-url"
  */
 
 const httpsPort         = 7443
+const defSessLifetime   = 3600
 const checkUri          = "/check"
 const authUri           = "/auth"
 const loginUri          = "/login"
 const logoutUri         = "/logout"
 const urlArg            = "url"
+
 const namespaceHdr      = "X-Namespace"
 const verifySecretHdr   = "X-Verify-Secret"
 const urlRootHdr        = "X-URL-Root"
 const logoutRedirectHdr = "X-Logout-Redirect"
+const sessLifetimeHdr   = "X-Session-Lifetime"
 
 /*****************************************************************************/
 

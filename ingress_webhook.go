@@ -81,6 +81,7 @@ const nginxAuthLocationAnnotation = `location = %s {
 
   proxy_set_header %s %s;
   proxy_set_header %s %s;
+  proxy_set_header %s %d;
   proxy_set_header %s $scheme://$http_host%s;
 }
 `
@@ -93,6 +94,7 @@ location @error401 {
 
   proxy_set_header %s %s;
   proxy_set_header %s %s;
+  proxy_set_header %s %d;
   proxy_set_header %s $scheme://$http_host%s;
 }
 `
@@ -494,18 +496,20 @@ func (a *ingressAnnotator) AddAnnotations(
         )
 
     authAnnotations := fmt.Sprintf(nginxAuthLocationAnnotation,
-            cr.Spec.AuthPath,             // authentication location
-            oidcRoot, authUri,            // proxy_pass for the auth call
-            namespaceHdr, namespace,      // namespace header
-            verifySecretHdr, name,        // verify secret header
-            urlRootHdr, cr.Spec.AuthPath, // URL root header
+            cr.Spec.AuthPath,                         // authentication location
+            oidcRoot, authUri,                        // proxy_pass 
+            namespaceHdr, namespace,                  // namespace header
+            verifySecretHdr, name,                    // verify secret header
+            sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
+            urlRootHdr, cr.Spec.AuthPath,             // URL root header
         )
 
     unauthAnnotations := fmt.Sprintf(nginx401LocationAnnotation,
-            oidcRoot, loginUri, urlArg,   // proxy_pass for the 401
-            namespaceHdr, namespace,      // namespace header
-            verifySecretHdr, name,        // verify secret header
-            urlRootHdr, cr.Spec.AuthPath, // URL root header
+            oidcRoot, loginUri, urlArg,               // proxy_pass for the 401
+            namespaceHdr, namespace,                  // namespace header
+            verifySecretHdr, name,                    // verify secret header
+            sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
+            urlRootHdr, cr.Spec.AuthPath,             // URL root header
         )
 
     logoutAnnotation := ""

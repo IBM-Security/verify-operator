@@ -20,6 +20,7 @@ import (
     "os"
     "os/signal"
     "net/http"
+    "strconv"
     "strings"
     "sync"
     "syscall"
@@ -74,8 +75,6 @@ func (server *OidcServer) start() {
 
     server.store = sessions.NewCookieStore([]byte(
                                         securecookie.GenerateRandomKey(32)))
-
-    server.store.MaxAge(sessionMaxAge)
 
     server.log.Info("Starting the OIDC server", "Port", httpsPort)
 
@@ -326,6 +325,8 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
     session.Values[sessionUserKey] = claims.PreferredUsername
 
+    session.Options.MaxAge = server.sessionLifetime(r)
+
     err = session.Save(r, w)
 
     if err != nil {
@@ -419,6 +420,8 @@ func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
     /*
      * Save the session.
      */
+
+    session.Options.MaxAge = server.sessionLifetime(r)
 
     err = session.Save(r, w)
 
@@ -690,4 +693,22 @@ func (server *OidcServer) GetSessionData(
 
 /*****************************************************************************/
 
+/*
+ * Retrieve the maximum lifetime of a session.
+ */
+
+func (server *OidcServer) sessionLifetime(r *http.Request) (sessLifetime int) {
+    sessLifetime  = defSessLifetime
+    hdrString    := r.Header.Get(sessLifetimeHdr)
+
+    if hdrString != "" {
+        if val, err := strconv.Atoi(hdrString); err == nil {
+            sessLifetime = val
+        }
+    }
+
+    return
+}
+
+/*****************************************************************************/
 
