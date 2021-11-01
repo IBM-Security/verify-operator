@@ -41,11 +41,13 @@ const defaultProtocol      = "https"
  * Session constants.
  */
 
+const maxCacheSize      = 32752
 const sessionCookieName = "verify-session"
 const sessionStateKey   = "state"
 const sessionUserKey    = "user"
 const sessionIdTokenKey = "identity"
 const sessionUrlKey     = "original-url"
+const expiryKey         = "expires"
 
 /*
  * HTTP server constants.

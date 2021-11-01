@@ -25,6 +25,7 @@ import (
     "strings"
     "sync"
     "syscall"
+    "time"
 
     "github.com/coreos/go-oidc"
     "github.com/google/uuid"
@@ -59,7 +60,7 @@ type OidcServer struct {
     clients    map[string]OidcClient
     clientLock *sync.RWMutex
 
-    store      *sessions.CookieStore
+    store      *LruStore
 }
 
 /*****************************************************************************/
@@ -74,8 +75,7 @@ func (server *OidcServer) start() {
     server.clients    = make(map[string]OidcClient)
     server.clientLock = &sync.RWMutex{}
 
-    server.store = sessions.NewCookieStore([]byte(
-                                        securecookie.GenerateRandomKey(32)))
+    server.store = NewLruStore([]byte(securecookie.GenerateRandomKey(32)))
 
     server.log.Info("Starting the OIDC server.", "Port", httpsPort)
 
@@ -173,21 +173,31 @@ func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
 
     if err == nil {
         /*
-         * Validate whether we have been authenticated or not.
+         * See if the session has expired.
          */
 
-        user = server.GetSessionData(session, sessionUserKey)
+        val := session.Values[expiryKey]
 
-        if user != "" {
-            w.Header().Set("X-Username", user)
+        expiry, ok := val.(int64); 
 
-            identity := server.GetSessionData(session, sessionIdTokenKey)
+        if ok && expiry > time.Now().Unix() {
+            /*
+             * Validate whether we have been authenticated or not.
+             */
 
-            if identity != "" {
-                w.Header().Set(idTokenHdr, identity)
+            user = server.GetSessionData(session, sessionUserKey)
+
+            if user != "" {
+                w.Header().Set("X-Username", user)
+
+                identity := server.GetSessionData(session, sessionIdTokenKey)
+
+                if identity != "" {
+                    w.Header().Set(idTokenHdr, identity)
+                }
+
+                status = http.StatusNoContent
             }
-
-            status = http.StatusNoContent
         }
     }
 
@@ -360,7 +370,7 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
                                     "user", claims.PreferredUsername)
 
     /*
-     * Save the user name and ID token to the session.
+     * Save the session information.
      */
 
     session.Values[sessionUserKey] = claims.PreferredUsername
@@ -369,7 +379,10 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
         session.Values[sessionIdTokenKey] = rawIDToken;
     }
 
-    session.Options.MaxAge = server.sessionLifetime(r)
+    lifetime := server.sessionLifetime(r)
+
+    session.Values[expiryKey] = time.Now().Unix() + int64(lifetime)
+    session.Options.MaxAge    = lifetime
 
     delete(session.Values, sessionStateKey)
 
