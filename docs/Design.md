@@ -80,35 +80,52 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.org/server-snippets: |
-	   location = /verify-sso {
-        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/auth;
-        proxy_pass_request_body off;
-	
-        proxy_set_header Content-Length "";
-        proxy_set_header X-Namespace default;
-        proxy_set_header X-Verify-Secret ibm-security-verify-client-85f8a46b-3e65-407d-b9fd-a841f44a39ca;
-        proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
-      }
+     location = /verify-sso/check {
+       internal;
+       proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/check;
+       proxy_pass_request_body off;
 
-      error_page 401 = @error401;
+       proxy_set_header Content-Length "";
+     }
 
-      # If the user is not logged in, redirect them to the login URL
-      location @error401 {
-        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/login?url=$scheme://$http_host$request_uri;
+     location = /verify-sso {
+       proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/auth;
 
-        proxy_set_header X-Namespace default;
-        proxy_set_header X-Verify-Secret ibm-security-verify-client-85f8a46b-3e65-407d-b9fd-a841f44a39ca;
-        proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
-      }
+       proxy_set_header X-Namespace default;
+       proxy_set_header X-Verify-Secret ibm-security-verify-client-3a69076b-f4a9-4fd7-8ce3-efc302639a72;
+       proxy_set_header X-Session-Lifetime 500;
+       proxy_set_header x_identity yes;
+       proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
+       proxy_set_header X-Debug-Level 9;
+     }
 
-      location = /verify-sso/logout {
-        proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/logout;
+     error_page 401 = @error401;
 
-        proxy_set_header X-Logout-Redirect http://www.google.com;
-      }
+     # If the user is not logged in, redirect them to the login URL
+     location @error401 {
+       proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/login?url=$scheme://$http_host$request_uri;
+
+       proxy_set_header X-Namespace default;
+       proxy_set_header X-Verify-Secret ibm-security-verify-client-3a69076b-f4a9-4fd7-8ce3-efc302639a72;
+       proxy_set_header X-Session-Lifetime 500;
+       proxy_set_header X-URL-Root $scheme://$http_host/verify-sso;
+       proxy_set_header X-Debug-Level 9;
+     }
+
+     location = /verify-sso/logout {
+       proxy_pass https://ibm-security-verify-operator-oidc-server.default.svc.cluster.local:7443/logout;
+
+       proxy_set_header X-Logout-Redirect http://www.google.com;
+     }
+
             
     nginx.org/location-snippets: |
-            auth_request /verify-oidc;
+     auth_request /verify-sso/check;
+     auth_request_set $auth_username $upstream_http_x_username;
+     proxy_set_header X-Remote-User $auth_username;
+     auth_request_set $id_token $upstream_http_x_identity;
+     proxy_set_header X-Identity $id_token;
+
 
 ```
 
@@ -130,4 +147,6 @@ The following endpoints are used by the controller:
 
 
 The [Vouch Proxy](https://github.com/vouch/vouch-proxy) project contains an example OIDC-RP implementation which can be referenced for the implementation of this controller.  The [github.com/coreos/go-oidc](https://pkg.go.dev/github.com/coreos/go-oidc#section-readme) package will be used to handle the OIDC specific processing.
+
+It is the responsibility of the server to handle session caching and so a simple LRU session cache has been implemented which is based on the 'quasoft/memstore' package, and utilises the 'hasicorp/golang-lru' package for the LRU cache.  The cache has been set to a fixed maximum size of 32752 entries.
 
