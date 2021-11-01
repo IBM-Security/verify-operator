@@ -35,14 +35,14 @@ The catalog source yaml looks like the following:
 apiVersion: operators.coreos.com/v1alpha1
 kind: CatalogSource
 metadata:
-  name: my-operator-catalog
-  namespace: openshift-marketplace 
+  name: verify-catalog
+  namespace: openshift-marketplace
 spec:
+  displayName: IBM Security Verify
+  publisher: IBM
   sourceType: grpc
-  image: ${IMAGE_TAG_BASE}-catalog:${VERSION} 
-  displayName: My Operator Catalog
-  publisher: IBM 
+  image: ${IMAGE_TAG_BASE}-catalog:${VERSION}
   updateStrategy:
-    registryPoll: 
-      interval: 30m
+    registryPoll:
+      interval: 10m
 ```

@@ -1,0 +1,32 @@
+# Copyright contributors to the IBM Security Verify Operator project
+
+# This YAML contains a sample custom resource definition for the IBM Security
+# Verify operator.  The main thing which needs to be customised in this
+# YAML file is the clientSecret field, ensuring that this corresponds to
+# the name of an actual secret which has been created and contains the IBM
+# Security Verify credentials.
+
+apiVersion: ibm.com/v1
+kind: IBMSecurityVerify
+
+metadata:
+  name: ibmsecurityverify-sample
+
+spec:
+  # The name of the secret which contains the IBM Security Verify
+  # client credentials.
+  clientSecret: ibm-security-verify-client-845737ba-3166-444d-a940-58c6f6d9131b
+
+  # The URL path, within the Ingress service, for the Verify SSO server.
+  authPath: /verify-sso
+
+  # The URL to which a client will be redirected upon logout.    If no
+  # logout redirect URL is specified the server will not provide a mechanism
+  # to logout the user.  The logout URI is constructed by appending the
+  # '/logout' URL segment to the configured 'AuthPath'.
+  logoutRedirectURL: https://www.ibm.com/au-en/products/verify-saas
+
+  # The lifetime, in seconds, for an authenticated session. 
+  sessionLifetime: 300
+
+  

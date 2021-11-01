@@ -1,0 +1,44 @@
+# Copyright contributors to the IBM Security Verify Operator project
+
+# This YAML creates a simple demo Web application.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: demoapp
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      app: demoapp
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: demoapp
+    spec:
+      containers:
+        - name: demoapp
+          image: >-
+            ibmcom/ibm-application-gateway-demo-resource-server:21.09
+          ports:
+            - containerPort: 8000
+
+---
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: demoapp
+
+spec:
+  ports:
+    - port: 80
+      name: demoapp
+      targetPort: 8000
+
+  selector:
+    app: demoapp
+
+  type: ClusterIP
+

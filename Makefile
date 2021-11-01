@@ -172,7 +172,7 @@ bundle: manifests kustomize ## Generate bundle manifests and metadata, then vali
 	sed -i '/      version: v1/ r $(CSV_FILE).annotations' $(CSV_FILE)
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
 	$(KUSTOMIZE) build config/manifests | sed "s|0000.0000.0000|$(SEMANTIC_VERSION)|g" | sed "s|--version--|$(VERSION)|g" | sed "s|--date--|`date`|g" | operator-sdk generate bundle -q --overwrite --version $(SEMANTIC_VERSION) $(BUNDLE_METADATA_OPTS)
-	echo "  com.redhat.openshift.versions: \"v4.7-v4.8\"" >> bundle/metadata/annotations.yaml
+	echo "  com.redhat.openshift.versions: \"v4.7-v4.9\"" >> bundle/metadata/annotations.yaml
 	operator-sdk bundle validate ./bundle
 
 .PHONY: bundle-build
@@ -214,7 +214,13 @@ endif
 BUNDLE_IMGS ?= $(BUNDLE_IMG)
 
 # The image tag given to the resulting catalog image (e.g. make catalog-build CATALOG_IMG=example.com/operator-catalog:v0.2.0).
+ifeq ($(VERSION), latest)
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(VERSION)
+else ifeq ($(VERSION), development)
+CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:$(VERSION)
+else
 CATALOG_IMG ?= $(IMAGE_TAG_BASE)-catalog:v$(VERSION)
+endif
 
 # Set CATALOG_BASE_IMG to an existing catalog image tag to add $BUNDLE_IMGS to that image.
 ifneq ($(origin CATALOG_BASE_IMG), undefined)
@@ -233,7 +239,29 @@ catalog-build: opm ## Build a catalog image.
 catalog-push: ## Push a catalog image.
 	$(MAKE) docker-push IMG=$(CATALOG_IMG)
 
-# Build everything.
+# Build targets.
+.PHONY: docker-all
+docker-all: docker-build docker-push
+
+.PHONY: bundle-all
+bundle-all: bundle-build bundle-push
+
+.PHONY: catalog-all
+catalog-all: catalog-build catalog-push
+
 .PHONY: all
-all: build docker-build bundle bundle-build
+all: docker-all bundle-all catalog-all
+
+.PHONY: catalog-run
+catalog-run:
+	sed "s|--catalog-img--|$(CATALOG_IMG)|g" test/catalog.yaml \
+            | kubectl apply -f -
+	kubectl get pods -n openshift-marketplace 
+	kubectl get catalogsource -n openshift-marketplace
+	kubectl get packagemanifest -n openshift-marketplace 
+
+.PHONY: catalog-cleanup
+catalog-cleanup:
+	sed "s|--catalog-img--|$(CATALOG_IMG)|g" test/catalog.yaml \
+            | kubectl delete -f -
 
