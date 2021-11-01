@@ -98,7 +98,7 @@ test: manifests generate fmt vet envtest ## Run tests.
 ##@ Build
 
 build: generate fmt vet ## Build manager binary.
-	go build -o bin/manager main.go ingress_webhook.go oidc_server.go constants.go
+	go build -o bin/manager main.go ingress_webhook.go oidc_server.go utils.go constants.go
 
 run: manifests generate fmt vet ## Run a controller from your host.
 	go run ./main.go

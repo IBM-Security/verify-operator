@@ -262,6 +262,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 |verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No
 |verify.ibm.com/idtoken.hdr|By default the operator will insert the user name into the HTTP stream in the `X_REMOTE_USER` header.  This annotation can be used to specify the HTTP header into which the entire identity token will be inserted.| No
+|verify.ibm.com/debug.level|This annotation controls the amount of debug information which will be sent to the console of the operator controller.  The larger the number the greater the amount of information which is sent to the console.  The debug level should be set as a number between 0 and 9 (default: 0).| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -296,3 +297,17 @@ oc apply -f testapp.yaml
 ```
 
 By adding these additional annotations to the Ingress definition the operator will ensure that the client has been authenticated against IBM Security Verify before allowing access to the service.  The operator will also insert the `X-REMOTE-USER` HTTP header into the request so that the service can be made aware of the name of the authenticated user.
+
+### Debugging
+
+The easiest way to observe the operator in action is to examine the log file for the operator controller pod.  The pod name for the controller will be something like: `ibm-security-verify-operator-controller-manager-5d88d8fc74zsgtt`.  
+
+> Please note that in an OpenShift environment, by default, the operators are installed into the `openshift-operators` domain.
+
+The following command can be executed to monitor the logging of the operator controller:
+
+```shell
+kubectl logs -f -l app=ibm-security-verify-operator,control-plane=controller-manager -c manager -n openshift-operators
+```
+
+In order to enable debugging the following annotation should be set in the Ingress definition: `verify.ibm.com/debug.level`.  The value should correspond to a number between 0 and 9.

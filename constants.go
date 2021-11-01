@@ -16,6 +16,7 @@ const crNameKey            = "verify.ibm.com/cr.name"
 const consentKey           = "verify.ibm.com/consent.action"
 const protocolKey          = "verify.ibm.com/protocol"
 const idTokenKey           = "verify.ibm.com/idtoken.hdr"
+const debugLevelKey        = "verify.ibm.com/debug.level"
 
 /*
  * Secret keys.
@@ -63,6 +64,7 @@ const verifySecretHdr   = "X-Verify-Secret"
 const urlRootHdr        = "X-URL-Root"
 const logoutRedirectHdr = "X-Logout-Redirect"
 const sessLifetimeHdr   = "X-Session-Lifetime"
+const debugLevelHdr     = "X-Debug-Level"
 const idTokenHdr        = "x_identity"
 
 /*****************************************************************************/

@@ -20,6 +20,7 @@ import (
     "os"
     "os/signal"
     "net/http"
+    "net/http/httputil"
     "strconv"
     "strings"
     "sync"
@@ -76,7 +77,7 @@ func (server *OidcServer) start() {
     server.store = sessions.NewCookieStore([]byte(
                                         securecookie.GenerateRandomKey(32)))
 
-    server.log.Info("Starting the OIDC server", "Port", httpsPort)
+    server.log.Info("Starting the OIDC server.", "Port", httpsPort)
 
     /*
      * Load the certificate and keyfile.
@@ -85,7 +86,7 @@ func (server *OidcServer) start() {
     cert, err := ioutil.ReadFile(server.cert)
 
     if err != nil {
-        server.log.Error(err, "Failed to load the server certificate")
+        server.log.Error(err, "Failed to load the server certificate.")
 
         return
     }
@@ -93,7 +94,7 @@ func (server *OidcServer) start() {
     key, err := ioutil.ReadFile(server.key)
 
     if err != nil {
-        server.log.Error(err, "Failed to load the server key")
+        server.log.Error(err, "Failed to load the server key.")
 
         return
     }
@@ -105,7 +106,7 @@ func (server *OidcServer) start() {
     pair, err := tls.X509KeyPair(cert, key)
 
     if err != nil {
-        server.log.Error(err, "Failed to generate the X509 key pair")
+        server.log.Error(err, "Failed to generate the X509 key pair.")
 
         return
     }
@@ -128,12 +129,12 @@ func (server *OidcServer) start() {
      * Start listening for requests in a different thread.
      */
 
-    server.log.V(5).Info("Waiting for Web requests")
+    server.log.Info("Waiting for Web requests.")
 
     go func() {
         if err := server.web.ListenAndServeTLS("", "");
                         err != http.ErrServerClosed {
-            server.log.Error(err, "Failed to start the OIDC server")
+            server.log.Error(err, "Failed to start the OIDC server.")
         }
     }()
 
@@ -147,7 +148,7 @@ func (server *OidcServer) start() {
         <-signalChan
 
     server.log.Info("Received a shutdown signal, shutting down the OIDC " +
-                    "server gracefully")
+                    "server gracefully.")
 
     server.web.Shutdown(context.Background())
 }
@@ -161,8 +162,6 @@ func (server *OidcServer) start() {
 
 func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
 
-    server.log.Info("Received check request.")
-
     status := http.StatusUnauthorized
 
     /*
@@ -170,17 +169,16 @@ func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
      */
 
     session, err := server.store.Get(r, sessionCookieName)
+    user         := ""
 
     if err == nil {
         /*
          * Validate whether we have been authenticated or not.
          */
 
-        user := server.GetSessionData(session, sessionUserKey)
+        user = server.GetSessionData(session, sessionUserKey)
 
         if user != "" {
-            server.log.Info("User is authorized.", "user", user)
-
             w.Header().Set("X-Username", user)
 
             identity := server.GetSessionData(session, sessionIdTokenKey)
@@ -191,6 +189,14 @@ func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
 
             status = http.StatusNoContent
         }
+    }
+
+    if status == http.StatusNoContent {
+        server.log.Info("User is authenticated.", 
+                "user", user, "forwarded", r.Header.Get("Forwarded"))
+    } else {
+        server.log.Info("Received a request from an unauthenticated user.",
+                        "forwarded", r.Header.Get("Forwarded"))
     }
 
     w.WriteHeader(status)
@@ -204,16 +210,35 @@ func (server *OidcServer) check(w http.ResponseWriter, r *http.Request) {
 
 func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
-    server.log.Info("Received authentication request.")
-
     /*
      * Retrieve the session for the user.
      */
 
     session, err := server.store.Get(r, sessionCookieName)
+    location     := "unknown"
+    state        := "unknown"
 
     if err != nil {
         session = sessions.NewSession(server.store, sessionCookieName)
+    } else {
+        location = server.GetSessionData(session, sessionUrlKey)
+        state    = server.GetSessionData(session, sessionStateKey)
+    }
+
+    /*
+     * Create the logger to be used for this request.
+     */
+
+    logger := server.createLogger(location, state, r)
+
+    logger.Log(5, "Received an authentication request.")
+
+    if logger.currentLevel >= 9 {
+        req, err := httputil.DumpRequest(r, true)  
+        if err == nil {
+            logger.Log(9, "Received an authentication request.", 
+                                "request", string(req))
+        }
     }
 
     /*
@@ -237,11 +262,13 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    logger.Log(7, "Received an authentication code.", "code", code)
+
     /*
      * Retrieve the Verify client which is to be used for this request.
      */
 
-    client, err := server.getClient(r)
+    client, err := server.getClient(logger, r)
 
     if err != nil {
         server.log.Error(err, "Failed to retrieve the verify client.")
@@ -259,7 +286,7 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
      * Validate the state ID matches the expected state.
      */
 
-    if r.URL.Query().Get("state") != session.Values[sessionStateKey] {
+    if r.URL.Query().Get("state") != state {
         http.Error(w, "state did not match", http.StatusBadRequest)
 
         return
@@ -279,6 +306,8 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
         return
     }
+
+    logger.Log(6, "Successfully exchanged the code for a token.")
 
     /*
      * Extract the identity token.
@@ -308,6 +337,8 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    logger.Log(7, "Successfully verified the token.", "token", rawIDToken)
+
     /*
      * Extract the preferred username.
      */
@@ -324,6 +355,9 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
         return
     }
+
+    logger.Log(6, "Extracted the user name from the token.", 
+                                    "user", claims.PreferredUsername)
 
     /*
      * Save the user name and ID token to the session.
@@ -353,20 +387,18 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
      * requested URL.
      */
 
-    url := server.GetSessionData(session, sessionUrlKey)
-
-    if url == "" {
+    if location == "" {
         http.Error(w, "The original URL is missing from the session data.", 
                         http.StatusInternalServerError)
 
         return
     }
 
-    server.log.Info("User has been authenticated.", 
+    logger.Log(1, "User has been authenticated.", 
                         "user", claims.PreferredUsername,
-                        "original url", url)
+                        "original.url", location)
 
-    http.Redirect(w, r, url, http.StatusFound)
+    http.Redirect(w, r, location, http.StatusFound)
 }
 
 /*****************************************************************************/
@@ -378,22 +410,7 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
 func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
 
-    server.log.Info("Kicking off the authentication process.")
-
-    /*
-     * Retrieve the Verify client which is to be used for this request.
-     */
-
-    client, err := server.getClient(r)
-
-    if err != nil {
-        server.log.Error(err, "Failed to retrieve the verify client.")
-
-        http.Error(w, "Failed to retrieve the Verify client: " + err.Error(), 
-                        http.StatusInternalServerError)
-
-        return
-    }
+    origUrl := r.URL.Query().Get(urlArg)
 
     /*
      * Generate a uuid which will be used as the state value.
@@ -409,6 +426,24 @@ func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
         return
     }
 
+    state := uuid.String()
+
+    /*
+     * Create the logger to be used for this request.
+     */
+
+    logger := server.createLogger(origUrl, state, r)
+
+    if logger.currentLevel >= 9 {
+        req, err := httputil.DumpRequest(r, true)  
+        if err == nil {
+            logger.Log(9, "Received an authentication request.", 
+                                "request", string(req))
+        }
+    }
+
+    logger.Log(5, "Kicking off the authentication process.")
+
     /*
      * Store the state value in a new cookie based session.
      */
@@ -419,15 +454,13 @@ func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
         session = sessions.NewSession(server.store, sessionCookieName)
     }
 
-    state := uuid.String()
-
     session.Values[sessionStateKey] = uuid.String()
 
     /*
      * Store the original URL in the session.
      */
 
-    session.Values[sessionUrlKey] = r.URL.Query().Get(urlArg)
+    session.Values[sessionUrlKey] = origUrl
 
     /*
      * Save the session.
@@ -446,11 +479,30 @@ func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
     }
 
     /*
+     * Retrieve the Verify client which is to be used for this request.
+     */
+
+    client, err := server.getClient(logger, r)
+
+    if err != nil {
+        server.log.Error(err, "Failed to retrieve the verify client.")
+
+        http.Error(w, "Failed to retrieve the Verify client: " + err.Error(), 
+                        http.StatusInternalServerError)
+
+        return
+    }
+
+    /*
      * Return the redirect to the Verify OP.
      */
 
-    http.Redirect(w, r, client.oauth2Config.AuthCodeURL(state), 
-                        http.StatusFound)
+    location := client.oauth2Config.AuthCodeURL(state)
+
+    logger.Log(6, "Sending a redirect to Verify for authentication.", 
+                                                "location", location)
+
+    http.Redirect(w, r, location, http.StatusFound)
 }
 
 /*****************************************************************************/
@@ -461,8 +513,6 @@ func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
  */
 
 func (server *OidcServer) logout(w http.ResponseWriter, r *http.Request) {
-    server.log.Info("Logging out the user.")
-
     /*
      * Retrieve the session for the user.
      */
@@ -470,6 +520,9 @@ func (server *OidcServer) logout(w http.ResponseWriter, r *http.Request) {
     session, err := server.store.Get(r, sessionCookieName)
 
     if err == nil && session != nil {
+        server.log.Info("Logging out the user.", 
+                "user", server.GetSessionData(session, sessionUserKey))
+
         /*
          * Log out the user session by setting the MaxAge of the session to
          * -1.
@@ -477,6 +530,9 @@ func (server *OidcServer) logout(w http.ResponseWriter, r *http.Request) {
 
         session.Options.MaxAge = -1
         session.Save(r, w)
+    } else {
+        server.log.Info(
+                "A logout has been received, but no user session is available.")
     }
 
     logoutURL := r.Header.Get(logoutRedirectHdr)
@@ -497,10 +553,12 @@ func (server *OidcServer) logout(w http.ResponseWriter, r *http.Request) {
  * a new client definition will be created.
  */
 
-func (server *OidcServer) getClient(r *http.Request) (
-                                        oidcClient *OidcClient, err error) {
+func (server *OidcServer) getClient(logger *LogInfo, r *http.Request) (
+                        oidcClient *OidcClient, err error) {
     oidcClient = nil
     err        = nil
+
+    logger.Log(6, "Attempting to retrieve a client to handle the request.")
 
     /*
      * Retrieve the name of the verify secret to be used from the request.  The
@@ -514,6 +572,8 @@ func (server *OidcServer) getClient(r *http.Request) (
 
         return
     }
+
+    logger.Log(7, "Retrieving the secret for the client.", "name", secretName)
 
     server.clientLock.Lock()
 
@@ -548,6 +608,12 @@ func (server *OidcServer) getClient(r *http.Request) (
 
             return
         }
+
+        logger.Log(6, 
+            "No existing client was found and so creating a new handle now.",
+            "namespace", namespaceName,
+            "url.root", urlRoot,
+            "secret", secretName)
 
         /*
          * Retrieve the client secret.
@@ -599,8 +665,7 @@ func (server *OidcServer) getClient(r *http.Request) (
         for idx, field := range secrets {
             var value string
 
-            value, err = server.GetSecretData(
-                                    client_.secret, field.name)
+            value, err = GetSecretData(client_.secret, field.name)
 
             if err != nil {
                 server.clientLock.Unlock()
@@ -667,25 +732,6 @@ func (server *OidcServer) getClient(r *http.Request) (
 /*****************************************************************************/
 
 /*
- * Retrieve the base64 decoded piece of data from the supplied secret.
- */
-
-func (server *OidcServer) GetSecretData(
-                            secret *apiv1.Secret, name string) (string, error) {
-    value, ok := secret.Data[name]
-
-    if !ok {
-        return "", errors.New(
-                fmt.Sprintf("The field, %s, is not available in the " +
-                    "secret: %s", name, secret.Name))
-    }
-
-    return strings.TrimSuffix(string(value), "\n"), nil
-}
-
-/*****************************************************************************/
-
-/*
  * Retrieve the specified piece of session data as a string.
  */
 
@@ -738,5 +784,40 @@ func (server *OidcServer) includeIdToken(r *http.Request) (include bool) {
 
     return
 }
+/*****************************************************************************/
+
+/*
+ * Create a logger based on the current request.
+ */
+
+func (server *OidcServer) createLogger(
+                            location string, 
+                            state    string, 
+                            r        *http.Request) (logger *LogInfo) {
+
+    hdrVal     := r.Header.Get(debugLevelHdr)
+    debugLevel := 0
+
+    if hdrVal != "" {
+        if val, err := strconv.Atoi(hdrVal); err != nil {
+            server.log.Error(err, "An invalid debug level was supplied.",
+                                    "level", hdrVal)
+        } else {
+            debugLevel = val
+        }
+    }
+
+    logger = &LogInfo { 
+        currentLevel: debugLevel,
+        log:          &server.log,
+        attributes:   []interface{} { 
+            "location", location,
+            "state",    state,
+        },
+    }
+
+    return
+}
+
 /*****************************************************************************/
 
