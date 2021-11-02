@@ -99,7 +99,7 @@ Before the operator can be used it must be configured with information which is 
 
 ### Secrets
 
-A Kubernetes secret is used by the operator controller to store sensitive information. This secret must be created in the Kubernetes namespace in which the IBM Security Verify operator is running. 
+A Kubernetes secret is used by the operator controller to store sensitive information. 
 
 The secret includes the following data fields:
 
@@ -154,7 +154,10 @@ metadata:
 
 spec:
   # The name of the secret which contains the IBM Security Verify
-  # client credentials.
+  # client credentials.  If the secret is not in the same namespace as the
+  # custom resource the secret name should be prefixed with the name of the
+  # namespace in which the secret resides, for example:
+  #    default/ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   
   # The lifetime, in seconds, for an authenticated session.  
@@ -257,7 +260,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |----------|-----------|--------
 |kubernetes.io/ingress.class|The class of the Nginx operator which is to be used - as defined by the Nginx Ingress Controller custom resource.  If this annotation is not specified it will default to a class of `nginx`.|No
 |verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  Existing secrets will be searched for a 'product' label of 'ibm-security-verify' and a matching 'client\_name'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| Yes
-|verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.| Required if the application has not already been registered.
+|verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created or the custom resource resides in a different namespace to the Ingress resource, and the application has not already been registered with IBM Security Verify.  If the custom resource is not in the same namespace as the ingress resource the custom resource name should be prefixed with the name of the namespace in which the custom resource resides, for example: 'default/verify-test-tenant'.| Required if the application has not already been registered.
 |verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | No
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 |verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No

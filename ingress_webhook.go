@@ -386,6 +386,30 @@ func (a *ingressAnnotator) RegisterApplication(
     appUrl, _ := ingress.Annotations[appUrlKey]
 
     /*
+     * The client secret could either be in the namespace of the CR, or
+     * included in the name specified in the CR.  We need to work out the
+     * client secret name and namespace now.
+     */
+
+    var namespace  string
+    var secretName string
+
+    secretElements := strings.Split(cr.Spec.ClientSecret, "/")
+
+    switch len(secretElements) {
+        case 1:
+            namespace  = cr.Namespace
+            secretName = secretElements[0]
+        case 2:
+            namespace  = secretElements[0]
+            secretName = secretElements[1]
+        default:
+            return nil, errors.New(fmt.Sprintf(
+                    "An incorrectly formatted secret, %s, was specified",
+                    cr.Spec.ClientSecret))
+    }
+
+    /*
      * Now that we have the appropriate custom resource we need to load the
      * corresponding secret.
      */
@@ -394,15 +418,16 @@ func (a *ingressAnnotator) RegisterApplication(
 
     err := a.client.Get(context.TODO(), 
                 client.ObjectKey{
-                    Namespace: ingress.Namespace,
-                    Name:      cr.Spec.ClientSecret,
+                    Namespace: namespace,
+                    Name:      secretName,
                 }, 
                 clientSecret)
 
     if err != nil {
         return nil, errors.New(
                 fmt.Sprintf("The specified secret for the custom resource, " +
-                    "%s, does not exist.", cr.Spec.ClientSecret))
+                    "%s, does not exist in the %s namespace.", 
+                    secretName, namespace))
     }
 
     logger.Log(7, "Located the secret for the CR.", "secret", clientSecret.Name)
@@ -495,9 +520,32 @@ func (a *ingressAnnotator) RetrieveCR(
 
         logger.Log(5, "Located a CR to use.", "name", crName)
     } else {
+
+        /*
+         * The CR could either be in the namespace of the Ingress, or
+         * included in the name specified in the annotation.  We need to work 
+         * out the cr name and namespace now.
+         */
+
+        var namespace string
+
+        nameElements := strings.Split(crName, "/")
+
+        switch len(nameElements) {
+            case 1:
+                namespace  = ingress.Namespace
+            case 2:
+                namespace  = nameElements[0]
+                crName     = nameElements[1]
+        default:
+            return nil, errors.New(fmt.Sprintf(
+                "An incorrectly formatted custom resource, %s, was specified",
+                crName))
+        }
+
         err := a.client.Get(context.TODO(), 
                 client.ObjectKey{
-                    Namespace: ingress.Namespace,
+                    Namespace: namespace,
                     Name:      crName,
                 }, 
                 cr)
@@ -505,8 +553,8 @@ func (a *ingressAnnotator) RetrieveCR(
         if err != nil {
             return nil, errors.New(
                 fmt.Sprintf("The verify.ibm.com/cr.name annotation, %s, does " +
-                    "not correspond to an existing custom resource.", 
-                    crName))
+                    "not correspond to an existing custom resource in the " +
+                    "%s namespace.", crName, namespace))
         }
     }
 

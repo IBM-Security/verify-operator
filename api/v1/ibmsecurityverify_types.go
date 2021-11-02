@@ -15,7 +15,10 @@ import (
 // IBMSecurityVerifySpec defines the desired state of IBMSecurityVerify.
 type IBMSecurityVerifySpec struct {
     // The name of the secret which contains the IBM Security Verify
-    // client credentials.
+    // client credentials.  If the secret is not in the same namespace as the
+    // custom resource the secret name should be prefixed with the name of the
+    // namespace in which the secret resides, for example:
+    //    default/ibm-security-verify-client
     ClientSecret string `json:"clientSecret"`
 
     //+kubebuilder:validation:Minimum=0

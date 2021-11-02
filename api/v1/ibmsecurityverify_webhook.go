@@ -10,6 +10,7 @@ import (
     "context"
     "errors"
     "fmt"
+    "strings"
 
     "k8s.io/apimachinery/pkg/runtime"
     "sigs.k8s.io/controller-runtime/pkg/webhook"
@@ -67,6 +68,30 @@ func (r *IBMSecurityVerify) ValidateCreate() error {
     ibmsecurityverifyLog.Info("validate create", "name", r.Name)
 
     /*
+     * The client secret could either be in the namespace of the CR, or
+     * included in the name specified in the CR.  We need to work out the
+     * client secret name and namespace now.
+     */
+
+    var namespace  string
+    var secretName string
+
+    secretElements := strings.Split(r.Spec.ClientSecret, "/")
+
+    switch len(secretElements) {
+        case 1:
+            namespace  = r.Namespace
+            secretName = secretElements[0]
+        case 2:
+            namespace  = secretElements[0]
+            secretName = secretElements[1]
+        default:
+            return errors.New(fmt.Sprintf(
+                    "An incorrectly formatted secret, %s, was specified",
+                    r.Spec.ClientSecret))
+    }
+
+    /*
      * The first thing which we need to do here is to retrieve the secret
      * which is referenced by the CR.
      */
@@ -75,14 +100,15 @@ func (r *IBMSecurityVerify) ValidateCreate() error {
 
     err := ibmsecurityverifyClient.Get(context.TODO(), 
             client.ObjectKey{
-		Namespace: r.Namespace,
-		Name:      r.Spec.ClientSecret,
+		Namespace: namespace,
+		Name:      secretName,
             }, 
             secret)
 
     if err != nil {
         return errors.New(fmt.Sprintf("The spec.clientSecret field, %s, does " +
-                "not correspond to an available secret.", r.Spec.ClientSecret))
+                "not correspond to an available secret in the %s namespace.", 
+                secretName, namespace))
     }
 
     /*
