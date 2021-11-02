@@ -619,7 +619,7 @@ func (a *ingressAnnotator) AddAnnotations(
      * Add the location snippets for the Ingress resource.
      */
 
-    checkPath := fmt.Sprintf("%s%s", cr.Spec.AuthPath, checkUri)
+    checkPath := fmt.Sprintf("%s%s", cr.Spec.SsoPath, checkUri)
 
     ingress.Annotations["nginx.org/location-snippets"] = 
         fmt.Sprintf(nginxLocationAnnotation, checkPath, idTokenAnnotation)
@@ -641,13 +641,13 @@ func (a *ingressAnnotator) AddAnnotations(
         )
 
     authAnnotations := fmt.Sprintf(nginxAuthLocationAnnotation,
-            cr.Spec.AuthPath,                         // authentication location
+            cr.Spec.SsoPath,                          // authentication location
             oidcRoot, authUri,                        // proxy_pass 
             namespaceHdr, namespace,                  // namespace header
             verifySecretHdr, name,                    // verify secret header
             sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
             idTokenHdr, useIdToken,                   // use ID token header
-            urlRootHdr, cr.Spec.AuthPath,             // URL root header
+            urlRootHdr, cr.Spec.SsoPath,              // URL root header
             debugLevelAnnotation,
         )
 
@@ -656,14 +656,14 @@ func (a *ingressAnnotator) AddAnnotations(
             namespaceHdr, namespace,                  // namespace header
             verifySecretHdr, name,                    // verify secret header
             sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
-            urlRootHdr, cr.Spec.AuthPath,             // URL root header
+            urlRootHdr, cr.Spec.SsoPath,              // URL root header
             debugLevelAnnotation,
         )
 
     logoutAnnotation := ""
     if cr.Spec.LogoutRedirectURL != "" {
         logoutAnnotation = fmt.Sprintf(nginxLogoutLocationAnnotation, 
-            cr.Spec.AuthPath,                             // logout location
+            cr.Spec.SsoPath,                              // logout location
             oidcRoot,                                     // proxy_pass
             logoutRedirectHdr, cr.Spec.LogoutRedirectURL, // redirect header
         )
@@ -943,12 +943,12 @@ func (a *ingressAnnotator) RegisterWithVerify(
         for _, rule := range ingress.Spec.Rules {
             if protocol == "http" || protocol == "both" {
                 redirectUris = append(redirectUris, 
-                        fmt.Sprintf("http://%s%s", rule.Host, cr.Spec.AuthPath))
+                        fmt.Sprintf("http://%s%s", rule.Host, cr.Spec.SsoPath))
             }
 
             if protocol == "https" || protocol == "both" {
                 redirectUris = append(redirectUris, 
-                    fmt.Sprintf("https://%s%s", rule.Host, cr.Spec.AuthPath))
+                    fmt.Sprintf("https://%s%s", rule.Host, cr.Spec.SsoPath))
             }
         }
     }

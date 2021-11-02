@@ -691,18 +691,14 @@ func (server *OidcServer) getClient(logger *LogInfo, r *http.Request) (
 
         /*
          * Create the provider.  This will also involve retrieving the provider
-         * endpoints using the discovery URL.  We need to replace '/v1.0/'
-         * within the discovery endpoint with '/oidc/', otherwise the issuer
-         * does not match and the underlying provider code fails.
+         * endpoints using the discovery URL.  
          */
-
-        endpoint := strings.Replace(
-                        secrets[endpointIdx].value, "/v1.0/", "/oidc/", -1)
 
         ctx := context.Background()
 
         client_.provider, err = oidc.NewProvider(ctx, 
-            strings.TrimSuffix(endpoint, "/.well-known/openid-configuration"))
+            strings.TrimSuffix(secrets[endpointIdx].value, 
+                                    "/.well-known/openid-configuration"))
 
         if err != nil {
             server.clientLock.Unlock()

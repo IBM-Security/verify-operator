@@ -30,12 +30,12 @@ type IBMSecurityVerifySpec struct {
     //+kubebuilder:default=/verify-sso
     // The URL path, within the Ingress service, for the Verify SSO server.
     // +optional
-    AuthPath string `json:"authPath"`
+    SsoPath string `json:"ssoPath"`
 
     // The URL to which a client will be redirected upon logout.    If no
     // logout redirect URL is specified the server will not provide a mechanism
     // to logout the user.  The logout URI is constructed by appending the
-    // '/logout' URL segment to the configured 'AuthPath'.
+    // '/logout' URL segment to the configured 'ssoPath'.
     // +optional
     LogoutRedirectURL string `json:"logoutRedirectURL"`
 }

@@ -15,10 +15,10 @@
           - 'urn:alm:descriptor:com.tectonic.ui:number'
       - description: "The URL path, within the Ingress service, for the Verify SSO server."
         displayName: Verify SSO Path
-        path: authPath
+        path: ssoPath
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:text'
-      - description: "The URL to which a client will be redirected upon logout.    If no logout redirect URL is specified the server will not provide a mechanism to logout the user.  The logout URI is constructed by appending the '/logout' URL segment to the configured 'AuthPath'."
+      - description: "The URL to which a client will be redirected upon logout.    If no logout redirect URL is specified the server will not provide a mechanism to logout the user.  The logout URI is constructed by appending the '/logout' URL segment to the configured Verify SSO path."
         displayName: Logout Redirect URL
         path: logoutRedirectURL
         x-descriptors:

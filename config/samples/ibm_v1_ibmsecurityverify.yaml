@@ -18,11 +18,11 @@ spec:
   sessionLifetime: 3600
 
   # The URL path, within the Ingress service, for the Verify SSO server.
-  authPath: /verify-sso
+  ssoPath: /verify-sso
 
   # The URL to which a client will be redirected upon logout.    If no
   # logout redirect URL is specified the server will not provide a mechanism
   # to logout the user.  The logout URI is constructed by appending the
-  # '/logout' URL segment to the configured 'AuthPath'.
+  # '/logout' URL segment to the configured 'ssoPath'.
   # logoutRedirectURL: /logout_response
 

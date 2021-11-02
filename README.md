@@ -158,12 +158,12 @@ spec:
   sessionLifetime: 3600
 
   # The URL path, within the Ingress service, for the Verify SSO server.
-  authPath: /verify-sso
+  ssoPath: /verify-sso
 
   # The URL to which a client will be redirected upon logout.    If no
   # logout redirect URL is specified the server will not provide a mechanism
   # to logout the user.  The logout URI is constructed by appending the
-  # '/logout' URL segment to the configured 'AuthPath'.
+  # '/logout' URL segment to the configured 'ssoPath'.
   logoutRedirectURL: /logout_response
 ```
 
@@ -205,7 +205,7 @@ The following fields should be set when registering the application:
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
 |Client authentication method|Client secret basic
-|Redirect URIs|https://\<nginx-ingress-url\>/\<CR AuthPath\>
+|Redirect URIs|https://\<nginx-ingress-url\>/\<CR ssoPath\>
 
 Once the application has been registered a new secret will need to be created in the same OpenShift namespace as the IBM Security Verify operator.  The name of the secret should be of the format: 'ibm\-security\-verify\-client\-\<client\-id>', and consist of the following fields:
 
