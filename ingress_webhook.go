@@ -929,7 +929,7 @@ func (a *ingressAnnotator) RegisterWithVerify(
         RedirectUris     []string `json:"redirect_uris"`
         ConsentAction    string   `json:"consent_action"`
         AllUsersEntitled bool     `json:"all_users_entitled"`
-        LoginUrl         string   `json:"initiate_login_uri"`
+        LoginUrl         string   `json:"initiate_login_uri,omitempty"`
         EnforcePkce      bool     `json:"enforce_pkce"`
     }
 
@@ -982,7 +982,8 @@ func (a *ingressAnnotator) RegisterWithVerify(
         return nil, err
     }
 
-    request.Header.Add("Accept", "application/json")
+    request.Header.Set("Content-Type", "application/json")
+    request.Header.Set("Accept", "application/json")
     request.Header.Set("Authorization", "Bearer " + accessToken)
 
     /*
