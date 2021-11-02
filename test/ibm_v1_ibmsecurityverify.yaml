@@ -14,7 +14,10 @@ metadata:
 
 spec:
   # The name of the secret which contains the IBM Security Verify
-  # client credentials.
+  # client credentials.  If the secret is not in the same namespace as the
+  # custom resource the secret name should be prefixed with the name of the
+  # namespace in which the secret resides, for example:
+  #    default/ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   clientSecret: ibm-security-verify-client-845737ba-3166-444d-a940-58c6f6d9131b
 
   # The URL path, within the Ingress service, for the Verify SSO server.

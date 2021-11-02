@@ -3,14 +3,24 @@
         name: ''
         version: v1
       specDescriptors:
-      - description: The name of the secret which contains the IBM Security Verify client credentials.
+      - description: "The name of the secret which contains the IBM Security Verify client credentials.  If the secret is not in the same namespace as the custom resource the secret name should be prefixed with the name of the namespace in which the secret resides, for example: 'default/ibm-security-verify-client'."
         displayName: Client Secret
         path: clientSecret
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:text'
-      - description: The root URL of the Nginx Ingress controller.
-        displayName: Ingress Root
-        path: ingressRoot
+      - description: "The lifetime, in seconds, for an authenticated session."
+        displayName: Session Lifetime
+        path: sessionLifetime
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:number'
+      - description: "The URL path, within the Ingress service, for the Verify SSO server."
+        displayName: Verify SSO Path
+        path: authPath
+        x-descriptors:
+          - 'urn:alm:descriptor:com.tectonic.ui:text'
+      - description: "The URL to which a client will be redirected upon logout.    If no logout redirect URL is specified the server will not provide a mechanism to logout the user.  The logout URI is constructed by appending the '/logout' URL segment to the configured 'AuthPath'."
+        displayName: Logout Redirect URL
+        path: logoutRedirectURL
         x-descriptors:
           - 'urn:alm:descriptor:com.tectonic.ui:text'
       statusDescriptors:
