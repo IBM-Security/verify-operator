@@ -5,6 +5,7 @@ kind: Service
 metadata:
   labels:
     control-plane: controller-manager
+    app: ibm-security-verify-operator
   name: controller-manager-metrics-service
   namespace: system
 spec:
@@ -15,3 +16,4 @@ spec:
     targetPort: https
   selector:
     control-plane: controller-manager
+    app: ibm-security-verify-operator

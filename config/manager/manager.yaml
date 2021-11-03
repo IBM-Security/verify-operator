@@ -65,6 +65,7 @@ kind: Service
 metadata:
   labels:
     control-plane: controller-manager
+    app: ibm-security-verify-operator
   name: oidc-server
   namespace: system
 spec:
@@ -75,4 +76,5 @@ spec:
     targetPort: 7443
   selector:
     control-plane: controller-manager
+    app: ibm-security-verify-operator
 
