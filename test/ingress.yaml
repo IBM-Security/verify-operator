@@ -1,0 +1,30 @@
+# Copyright contributors to the IBM Security Verify Operator project
+
+# This YAML contains a sample Ingress definition which adds IBM Security Verify
+# authentication requirements to the service.
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: demoapp
+  annotations:
+    verify.ibm.com/app.name: "my-test-app"
+    verify.ibm.com/cr.name: "ibmsecurityverify-sample"
+    verify.ibm.com/protocol: "http"
+#    verify.ibm.com/idtoken.hdr: "X-Identity"
+#    verify.ibm.com/debug.level: "9"
+#    kubernetes.io/ingress.class: "nginx"
+
+spec:
+  rules:
+  - host: "*.ibm.com"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/demoapp"
+        backend:
+          service:
+            name: demoapp
+            port:
+              number: 80
+

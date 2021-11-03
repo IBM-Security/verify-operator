@@ -79,14 +79,8 @@ To install the IBM Security Verify operator from the RedHat Operator Catalog:
 ![OpenShift Operator Info](docs/images/OpenShiftOperatorProductInfo.png)
 4. On the 'Install Operator' page that opens, specify the cluster namespace in which to install the operator. Also click the `Automatic` radio button under Approval Strategy, to enable automatic updates of the running Operator instance without manual approval from the administrator. Click the `Install` button.
 ![OpenShift Operator Subscription](docs/images/OpenShiftOperatorSubscription.png)
-5. Ensure that the IBM Security Verify operator has been created by the Operator Lifecycle Manager. The phase should be set to "Succeeded". Note that this may take a few minutes.
-
-```shell
-oc get csv -n openshift-operators
-
-NAME                                    DISPLAY                        VERSION   REPLACES   PHASE
-ibm-security-verify-operator.v21.10.0   IBM Security Verify Operator   21.10.0              Succeeded
-``` 
+5. Ensure that the IBM Security Verify operator has been created by the Operator Lifecycle Manager. 
+![OpenShift Operator Installed](docs/images/OpenShiftOperatorInstalled.png)
 
 At this point the IBM Security Verify operator has been deployed and a subscription has been created that will monitor for any updates to the operator in the RedHat Operator Catalog. The IBM Security Verify operator is now operational.
 
@@ -99,7 +93,7 @@ Before the operator can be used it must be configured with information which is 
 
 ### Secrets
 
-A Kubernetes secret is used by the operator controller to store sensitive information. This secret must be created in the Kubernetes namespace in which the IBM Security Verify operator is running. 
+A Kubernetes secret is used by the operator controller to store sensitive information. 
 
 The secret includes the following data fields:
 
@@ -154,19 +148,22 @@ metadata:
 
 spec:
   # The name of the secret which contains the IBM Security Verify
-  # client credentials.
+  # client credentials.  If the secret is not in the same namespace as the
+  # custom resource the secret name should be prefixed with the name of the
+  # namespace in which the secret resides, for example:
+  #    default/ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
   
   # The lifetime, in seconds, for an authenticated session.  
   sessionLifetime: 3600
 
   # The URL path, within the Ingress service, for the Verify SSO server.
-  authPath: /verify-sso
+  ssoPath: /verify-sso
 
   # The URL to which a client will be redirected upon logout.    If no
   # logout redirect URL is specified the server will not provide a mechanism
   # to logout the user.  The logout URI is constructed by appending the
-  # '/logout' URL segment to the configured 'AuthPath'.
+  # '/logout' URL segment to the configured 'ssoPath'.
   logoutRedirectURL: /logout_response
 ```
 
@@ -208,7 +205,7 @@ The following fields should be set when registering the application:
 |Sign-on method|Open ID Connect 1.0
 |Grant types|Authorization code 
 |Client authentication method|Client secret basic
-|Redirect URIs|https://\<nginx-ingress-url\>/\<CR AuthPath\>
+|Redirect URIs|https://\<nginx-ingress-url\>/\<CR ssoPath\>
 
 Once the application has been registered a new secret will need to be created in the same OpenShift namespace as the IBM Security Verify operator.  The name of the secret should be of the format: 'ibm\-security\-verify\-client\-\<client\-id>', and consist of the following fields:
 
@@ -257,10 +254,12 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |----------|-----------|--------
 |kubernetes.io/ingress.class|The class of the Nginx operator which is to be used - as defined by the Nginx Ingress Controller custom resource.  If this annotation is not specified it will default to a class of `nginx`.|No
 |verify.ibm.com/app.name|This annotation is used by the IBM Security Verify operator to determine which IBM Security Verify Application the requests should be authenticated by.  It will correspond to a secret which contains the client credentials for the Application.  Existing secrets will be searched for a 'product' label of 'ibm-security-verify' and a matching 'client\_name'.  If the secret does not already exist the application will be automatically registered with IBM Security Verify, and the credential information will be stored in the secret for future reference.| Yes
-|verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created, and the application has not already been registered with IBM Security Verify.| Required if the application has not already been registered.
+|verify.ibm.com/cr.name|This optional annotation contains the name of the IBMSecurityVerify custom resource for the Verify tenant which is to be used.  This field is only required if multiple IBMSecurityVerify custom resources have been created or the custom resource resides in a different namespace to the Ingress resource, and the application has not already been registered with IBM Security Verify.  If the custom resource is not in the same namespace as the ingress resource the custom resource name should be prefixed with the name of the namespace in which the custom resource resides, for example: 'default/verify-test-tenant'.| Required if the application has not already been registered.
 |verify.ibm.com/app.url|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the URL for the application.  This URL is used when launching the application from the IBM Security Verify dashboard. | No
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 |verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No
+|verify.ibm.com/idtoken.hdr|By default the operator will insert the user name into the HTTP stream in the `X_REMOTE_USER` header.  This annotation can be used to specify the HTTP header into which the entire identity token will be inserted.| No
+|verify.ibm.com/debug.level|This annotation controls the amount of debug information which will be sent to the console of the operator controller.  The larger the number the greater the amount of information which is sent to the console.  The debug level should be set as a number between 0 and 9 (default: 0).| No
 
 The following example (testapp.yaml) shows an Ingress definition:
 
@@ -276,6 +275,7 @@ metadata:
     verify.ibm.com/app.url: "https://my-nginx-ingress.apps.acme.ibm.com/home"
     verify.ibm.com/consent.action: "always_prompt"
     verify.ibm.com/protocol: "https"
+    verify.ibm.com/idtoken.hdr: "X-Identity"
 spec:
   rules:
   - host: my-nginx-ingress.apps.acme.ibm.com
@@ -294,3 +294,17 @@ oc apply -f testapp.yaml
 ```
 
 By adding these additional annotations to the Ingress definition the operator will ensure that the client has been authenticated against IBM Security Verify before allowing access to the service.  The operator will also insert the `X-REMOTE-USER` HTTP header into the request so that the service can be made aware of the name of the authenticated user.
+
+### Debugging
+
+The easiest way to observe the operator in action is to examine the log file for the operator controller pod.  The pod name for the controller will be something like: `ibm-security-verify-operator-controller-manager-5d88d8fc74zsgtt`.  
+
+> Please note that in an OpenShift environment, by default, the operators are installed into the `openshift-operators` domain.
+
+The following command can be executed to monitor the logging of the operator controller:
+
+```shell
+kubectl logs -f -l app=ibm-security-verify-operator,control-plane=controller-manager -c manager -n openshift-operators
+```
+
+In order to enable debugging the following annotation should be set in the Ingress definition: `verify.ibm.com/debug.level`.  The value should correspond to a number between 0 and 9.

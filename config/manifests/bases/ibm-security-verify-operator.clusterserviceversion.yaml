@@ -13,9 +13,7 @@ metadata:
     description: The IBM Security Verify operator can consistently enforce policy-driven security, including authentication and authorization, using the Ingress networking capability of OpenShift.
     repository: https://github.com/IBM-Security/verify-operator
     support: IBM
-    # Prevent cluster upgrades to OpenShift Version 4.9 when this 
-    # bundle is installed on the cluster
-    "olm.properties": '[{"type": "olm.maxOpenShiftVersion", "value": "4.8"}]'
+    "olm.properties": '[{"type": "olm.maxOpenShiftVersion", "value": "4.9"}]'
   name: ibm-security-verify-operator.v0000.0000.0000
   namespace: placeholder
 

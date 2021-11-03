@@ -14,15 +14,18 @@ metadata:
   namespace: system
   labels:
     control-plane: controller-manager
+    app: ibm-security-verify-operator
 spec:
   selector:
     matchLabels:
       control-plane: controller-manager
+      app: ibm-security-verify-operator
   replicas: 1
   template:
     metadata:
       labels:
         control-plane: controller-manager
+        app: ibm-security-verify-operator
     spec:
       securityContext:
         runAsNonRoot: true
@@ -62,6 +65,7 @@ kind: Service
 metadata:
   labels:
     control-plane: controller-manager
+    app: ibm-security-verify-operator
   name: oidc-server
   namespace: system
 spec:
@@ -72,4 +76,5 @@ spec:
     targetPort: 7443
   selector:
     control-plane: controller-manager
+    app: ibm-security-verify-operator
 

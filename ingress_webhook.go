@@ -61,17 +61,34 @@ type Endpoints struct {
  * The main Nginx annotation.
  */
 
-const nginxServerAnnotation = `location = %s {
+const nginxServerAnnotation = `%s
+%s
+%s
+%s
+`
+
+const nginxCheckLocationAnnotation = `location = %s {
+  internal;
   proxy_pass %s%s;
   proxy_pass_request_body off;
 
   proxy_set_header Content-Length "";
+}
+`
+
+const nginxAuthLocationAnnotation = `location = %s {
+  proxy_pass %s%s;
+
   proxy_set_header %s %s;
+  proxy_set_header %s %s;
+  proxy_set_header %s %d;
   proxy_set_header %s %s;
   proxy_set_header %s $scheme://$http_host%s;
+  %s
 }
+`
 
-error_page 401 = @error401;
+const nginx401LocationAnnotation = `error_page 401 = @error401;
 
 # If the user is not logged in, redirect them to the login URL
 location @error401 {
@@ -79,10 +96,10 @@ location @error401 {
 
   proxy_set_header %s %s;
   proxy_set_header %s %s;
+  proxy_set_header %s %d;
   proxy_set_header %s $scheme://$http_host%s;
+  %s
 }
-
-%s
 `
 
 const nginxLogoutLocationAnnotation = `location = %s/logout {
@@ -95,6 +112,11 @@ const nginxLogoutLocationAnnotation = `location = %s/logout {
 const nginxLocationAnnotation = `auth_request %s;
 auth_request_set $auth_username $upstream_http_x_username;
 proxy_set_header X-Remote-User $auth_username;
+%s
+`
+
+const nginxIDTokenAnnotation = `auth_request_set $id_token $upstream_http_%s;
+proxy_set_header %s $id_token;
 `
 
 /*****************************************************************************/
@@ -118,7 +140,8 @@ func (a *ingressAnnotator) Handle(
         return admission.Errored(http.StatusBadRequest, err)
     }
 
-    a.log.Info("Handle", "name", ingress.Name)
+    a.log.Info("Proccesing an Ingress definition", 
+            "name", ingress.Name, "namespace", ingress.Namespace)
 
     /*
      * Early exit if there are no annotations present.
@@ -142,14 +165,43 @@ func (a *ingressAnnotator) Handle(
     }
 
     /*
+     * Work out the debug level.
+     */
+
+    debugLevel        := 0
+    debugLevelStr, ok := ingress.Annotations[debugLevelKey]
+
+    if ok {
+        val, err := strconv.Atoi(debugLevelStr); 
+
+        if err != nil {
+            a.log.Error(err, "Failed to determine the debug level.", 
+                "ingress", ingress.Name, "application")
+
+            return admission.Errored(http.StatusBadRequest, err)
+        }
+
+        debugLevel = val
+    }
+
+    logger := LogInfo { 
+        currentLevel: debugLevel,
+        log:          &a.log,
+        attributes:   []interface{} {
+                        "ingress",     ingress.Name, 
+                        "application", appName },
+    }
+
+    logger.Log(1, "Setting the debug level.", "level", debugLevel)
+
+    /*
      * See if the secret has already been created for this application.
      */
 
-    secret, err := a.LocateAppSecret(appName, ingress)
+    secret, err := a.LocateAppSecret(&logger, appName, ingress)
 
     if err != nil {
-        a.log.Error(err, "Failed to locate the application secret.", 
-                                                    "application", appName)
+        logger.Error(err, "Failed to locate the application secret." )
 
         return admission.Errored(http.StatusBadRequest, err)
     }
@@ -158,9 +210,11 @@ func (a *ingressAnnotator) Handle(
      * Retrieve the custom resource which should be used.
      */
 
-    cr, err := a.RetrieveCR(ingress)
+    cr, err := a.RetrieveCR(&logger, ingress)
 
     if err != nil {
+        logger.Error(err, "Failed to retrieve the custom resource name.")
+
         return admission.Errored(http.StatusBadRequest, err)
     }
 
@@ -170,11 +224,10 @@ func (a *ingressAnnotator) Handle(
      */
 
     if secret == nil {
-        secret, err = a.RegisterApplication(appName, cr, ingress)
+        secret, err = a.RegisterApplication(&logger, appName, cr, ingress)
 
         if err != nil {
-            a.log.Error(err, "Failed to register the application.", 
-                                                    "application", appName)
+            logger.Error(err, "Failed to register the application.")
 
             return admission.Errored(http.StatusBadRequest, err)
         }
@@ -184,12 +237,11 @@ func (a *ingressAnnotator) Handle(
      * Add the annotation to the ingress.
      */
 
-    err = a.AddAnnotations(cr, ingress, secret.Namespace, secret.Name)
+    err = a.AddAnnotations(&logger, cr, ingress, secret.Namespace, secret.Name)
 
     if err != nil {
-        a.log.Error(err, 
-                "Failed to add annotations to the Ingress definition.", 
-                "ingress", ingress.Name, "application", appName)
+        logger.Error(err, 
+                "Failed to add annotations to the Ingress definition.")
 
         return admission.Errored(http.StatusBadRequest, err)
     }
@@ -201,9 +253,7 @@ func (a *ingressAnnotator) Handle(
     marshaledIngress, err := json.Marshal(ingress)
 
     if err != nil {
-        a.log.Error(err, 
-                "Failed to marshal the Ingress definition.", 
-                "ingress", ingress.Name, "application", appName)
+        logger.Error(err, "Failed to marshal the Ingress definition.")
 
         return admission.Errored(http.StatusInternalServerError, err)
     }
@@ -219,8 +269,11 @@ func (a *ingressAnnotator) Handle(
  */
 
 func (a *ingressAnnotator) LocateAppSecret(
+                logger  *LogInfo,
                 appName string,
                 ingress *netv1.Ingress) (*apiv1.Secret, error) {
+
+    logger.Log(5, "Attempting to retrieve the secret for the Ingress resource.")
 
     /*
      * Check to see if the secret already exists.  We do this by searching
@@ -247,7 +300,12 @@ func (a *ingressAnnotator) LocateAppSecret(
     secret := apiv1.Secret{}
 
     for _, secret = range secrets.Items {
-        name, _ := a.GetSecretData(&secret, clientNameKey)
+        logger.Log(7, "Found a secret.", "secret", secret.Name)
+
+        name, _ := GetSecretData(&secret, clientNameKey)
+
+        logger.Log(7, "Checking the application name from the secret.", 
+                            "name", name)
 
         if string(name) == appName {
             found = true
@@ -260,12 +318,15 @@ func (a *ingressAnnotator) LocateAppSecret(
         return nil, nil
     }
 
+    logger.Log(5, "Found a matching secret for the application.", 
+                    "secret", secret.Name)
+
     /*
      * Now we need to ensure that the secret contains all of the required
      * fields.
      */
 
-    err = a.ValidateSecret(&secret)
+    err = a.ValidateSecret(logger, &secret)
 
     if err != nil {
         return nil, err
@@ -280,7 +341,10 @@ func (a *ingressAnnotator) LocateAppSecret(
  * Valid that the secret has the required fields.
  */
 
-func (a *ingressAnnotator) ValidateSecret(secret *apiv1.Secret) (error) {
+func (a *ingressAnnotator) ValidateSecret(
+                logger *LogInfo, secret *apiv1.Secret) (error) {
+    logger.Log(5, "Validating the secret.", "secret", secret.Name)
+
     fields := []string {
         clientIdKey,
         clientSecretKey,
@@ -308,18 +372,42 @@ func (a *ingressAnnotator) ValidateSecret(secret *apiv1.Secret) (error) {
  */
 
 func (a *ingressAnnotator) RegisterApplication(
+                    logger  *LogInfo,
                     appName string,
                     cr      *ibmv1.IBMSecurityVerify,
                     ingress *netv1.Ingress) (*apiv1.Secret, error) {
 
-    a.log.Info("RegisterApplication", 
-                    "name", appName, "annotations", ingress.Annotations)
+    logger.Log(5, "RegisterApplication", "annotations", ingress.Annotations)
 
     /*
      * Retrieve the app.url annotation.
      */
 
     appUrl, _ := ingress.Annotations[appUrlKey]
+
+    /*
+     * The client secret could either be in the namespace of the CR, or
+     * included in the name specified in the CR.  We need to work out the
+     * client secret name and namespace now.
+     */
+
+    var namespace  string
+    var secretName string
+
+    secretElements := strings.Split(cr.Spec.ClientSecret, "/")
+
+    switch len(secretElements) {
+        case 1:
+            namespace  = cr.Namespace
+            secretName = secretElements[0]
+        case 2:
+            namespace  = secretElements[0]
+            secretName = secretElements[1]
+        default:
+            return nil, errors.New(fmt.Sprintf(
+                    "An incorrectly formatted secret, %s, was specified",
+                    cr.Spec.ClientSecret))
+    }
 
     /*
      * Now that we have the appropriate custom resource we need to load the
@@ -330,18 +418,21 @@ func (a *ingressAnnotator) RegisterApplication(
 
     err := a.client.Get(context.TODO(), 
                 client.ObjectKey{
-                    Namespace: ingress.Namespace,
-                    Name:      cr.Spec.ClientSecret,
+                    Namespace: namespace,
+                    Name:      secretName,
                 }, 
                 clientSecret)
 
     if err != nil {
         return nil, errors.New(
                 fmt.Sprintf("The specified secret for the custom resource, " +
-                    "%s, does not exist.", cr.Spec.ClientSecret))
+                    "%s, does not exist in the %s namespace.", 
+                    secretName, namespace))
     }
 
-    err = a.ValidateSecret(clientSecret)
+    logger.Log(7, "Located the secret for the CR.", "secret", clientSecret.Name)
+
+    err = a.ValidateSecret(logger, clientSecret)
 
     if err != nil {
         return nil, err
@@ -351,13 +442,13 @@ func (a *ingressAnnotator) RegisterApplication(
      * Retrieve the endpoints for the verify tenant.
      */
 
-    endpointUrl, err := a.GetSecretData(clientSecret, discoveryEndpointKey)
+    endpointUrl, err := GetSecretData(clientSecret, discoveryEndpointKey)
 
     if (err != nil) {
         return nil, err
     }
 
-    endpoints, err := a.GetEndpoints(endpointUrl)
+    endpoints, err := a.GetEndpoints(logger, endpointUrl)
 
     if err != nil {
         return nil, err
@@ -368,7 +459,8 @@ func (a *ingressAnnotator) RegisterApplication(
      * registration.
      */
 
-    accessToken, err := a.GetAccessToken(endpoints.TokenEndpoint, clientSecret)
+    accessToken, err := a.GetAccessToken(
+                            logger, endpoints.TokenEndpoint, clientSecret)
 
     if err != nil {
         return nil, err
@@ -378,8 +470,8 @@ func (a *ingressAnnotator) RegisterApplication(
      * Now we can perform the registration with Verify.
      */
 
-    return a.RegisterWithVerify(cr, ingress, endpointUrl, appName, appUrl, 
-                                    endpoints.RegistrationEndpoint, accessToken)
+    return a.RegisterWithVerify(logger, cr, ingress, endpointUrl, appName, 
+                        appUrl, endpoints.RegistrationEndpoint, accessToken)
 }
 
 /*****************************************************************************/
@@ -390,12 +482,18 @@ func (a *ingressAnnotator) RegisterApplication(
  */
 
 func (a *ingressAnnotator) RetrieveCR(
+                    logger  *LogInfo,
                     ingress *netv1.Ingress) (*ibmv1.IBMSecurityVerify, error) {
     cr := &ibmv1.IBMSecurityVerify{}
 
     crName, found := ingress.Annotations[crNameKey]
 
+    logger.Log(5, "Retrieving the CR", "name", crName)
+
     if ! found {
+        logger.Log(5, 
+            "The CR annotation was not found, using the first available CR.")
+
         /*
          * If the custom resource name was not specified we load the first
          * available custom resource.
@@ -420,10 +518,34 @@ func (a *ingressAnnotator) RetrieveCR(
 
         cr = &crs.Items[0]
 
+        logger.Log(5, "Located a CR to use.", "name", crName)
     } else {
+
+        /*
+         * The CR could either be in the namespace of the Ingress, or
+         * included in the name specified in the annotation.  We need to work 
+         * out the cr name and namespace now.
+         */
+
+        var namespace string
+
+        nameElements := strings.Split(crName, "/")
+
+        switch len(nameElements) {
+            case 1:
+                namespace  = ingress.Namespace
+            case 2:
+                namespace  = nameElements[0]
+                crName     = nameElements[1]
+        default:
+            return nil, errors.New(fmt.Sprintf(
+                "An incorrectly formatted custom resource, %s, was specified",
+                crName))
+        }
+
         err := a.client.Get(context.TODO(), 
                 client.ObjectKey{
-                    Namespace: ingress.Namespace,
+                    Namespace: namespace,
                     Name:      crName,
                 }, 
                 cr)
@@ -431,8 +553,8 @@ func (a *ingressAnnotator) RetrieveCR(
         if err != nil {
             return nil, errors.New(
                 fmt.Sprintf("The verify.ibm.com/cr.name annotation, %s, does " +
-                    "not correspond to an existing custom resource.", 
-                    crName))
+                    "not correspond to an existing custom resource in the " +
+                    "%s namespace.", crName, namespace))
         }
     }
 
@@ -447,10 +569,13 @@ func (a *ingressAnnotator) RetrieveCR(
  */
 
 func (a *ingressAnnotator) AddAnnotations(
+                    logger    *LogInfo,
                     cr        *ibmv1.IBMSecurityVerify,
                     ingress   *netv1.Ingress,
                     namespace string,
                     name      string) (error) {
+
+    logger.Log(5, "Adding the Verify annotations to the Ingress definition.")
 
     /*
      * Add the ingress class annotation.
@@ -458,14 +583,50 @@ func (a *ingressAnnotator) AddAnnotations(
 
     if _, ok := ingress.Annotations["kubernetes.io/ingress.class"]; !ok {
         ingress.Annotations["kubernetes.io/ingress.class"] = "nginx"
+
+        logger.Log(8, "Adding the ingress class annotation.",
+                "kuberenetes.io/ingress.class", "nginx")
+    }
+
+    /*
+     * Build up the ID Token annotation.
+     */
+
+    idTokenAnnotation := ""
+    useIdToken        := "no"
+
+    extIdTokenHdr, ok := ingress.Annotations[idTokenKey]
+
+    if ok {
+        idTokenAnnotation = fmt.Sprintf(nginxIDTokenAnnotation,
+                                            idTokenHdr, extIdTokenHdr)
+        useIdToken = "yes"
+    }
+
+    /*
+     * Build up the debug level header.
+     */
+
+    debugLevelAnnotation := ""
+    debugLevel, ok       := ingress.Annotations[debugLevelKey]
+
+    if ok {
+        debugLevelAnnotation = fmt.Sprintf("proxy_set_header %s %s;",
+                                                debugLevelHdr, debugLevel)
     }
 
     /*
      * Add the location snippets for the Ingress resource.
      */
 
+    checkPath := fmt.Sprintf("%s%s", cr.Spec.SsoPath, checkUri)
+
     ingress.Annotations["nginx.org/location-snippets"] = 
-        fmt.Sprintf(nginxLocationAnnotation, cr.Spec.AuthPath)
+        fmt.Sprintf(nginxLocationAnnotation, checkPath, idTokenAnnotation)
+
+    logger.Log(8, "Adding the location snippets.",
+                "nginx.org/location-snippets", 
+                ingress.Annotations["nginx.org/location-snippets"])
 
     /*
      * Add the server snippets for the Ingress resource.
@@ -474,10 +635,35 @@ func (a *ingressAnnotator) AddAnnotations(
     oidcRoot := fmt.Sprintf("https://ibm-security-verify-operator-oidc-server" +
                             ".%s.svc.cluster.local:%d", a.namespace, httpsPort)
 
+    checkAnnotations := fmt.Sprintf(nginxCheckLocationAnnotation,
+            checkPath,                     // check location
+            oidcRoot, checkUri,            // proxy_pass for the check call
+        )
+
+    authAnnotations := fmt.Sprintf(nginxAuthLocationAnnotation,
+            cr.Spec.SsoPath,                          // authentication location
+            oidcRoot, authUri,                        // proxy_pass 
+            namespaceHdr, namespace,                  // namespace header
+            verifySecretHdr, name,                    // verify secret header
+            sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
+            idTokenHdr, useIdToken,                   // use ID token header
+            urlRootHdr, cr.Spec.SsoPath,              // URL root header
+            debugLevelAnnotation,
+        )
+
+    unauthAnnotations := fmt.Sprintf(nginx401LocationAnnotation,
+            oidcRoot, loginUri, urlArg,               // proxy_pass for the 401
+            namespaceHdr, namespace,                  // namespace header
+            verifySecretHdr, name,                    // verify secret header
+            sessLifetimeHdr, cr.Spec.SessionLifetime, // sess lifetime header
+            urlRootHdr, cr.Spec.SsoPath,              // URL root header
+            debugLevelAnnotation,
+        )
+
     logoutAnnotation := ""
     if cr.Spec.LogoutRedirectURL != "" {
         logoutAnnotation = fmt.Sprintf(nginxLogoutLocationAnnotation, 
-            cr.Spec.AuthPath,                             // logout location
+            cr.Spec.SsoPath,                              // logout location
             oidcRoot,                                     // proxy_pass
             logoutRedirectHdr, cr.Spec.LogoutRedirectURL, // redirect header
         )
@@ -485,17 +671,15 @@ func (a *ingressAnnotator) AddAnnotations(
 
     ingress.Annotations["nginx.org/server-snippets"]   = 
         fmt.Sprintf(nginxServerAnnotation, 
-            cr.Spec.AuthPath,             // authentication location
-            oidcRoot, authUri,            // proxy_pass for the auth call
-            namespaceHdr, namespace,      // namespace header
-            verifySecretHdr, name,        // verify secret header
-            urlRootHdr, cr.Spec.AuthPath, // URL root header
-            oidcRoot, loginUri, urlArg,   // proxy_pass for the 401
-            namespaceHdr, namespace,      // namespace header
-            verifySecretHdr, name,        // verify secret header
-            urlRootHdr, cr.Spec.AuthPath, // URL root header
-            logoutAnnotation,             // Logout location
+            checkAnnotations,
+            authAnnotations,
+            unauthAnnotations,
+            logoutAnnotation,
         )
+
+    logger.Log(8, "Adding the server snippets.",
+                "nginx.org/server-snippets", 
+                ingress.Annotations["nginx.org/server-snippets"])
 
     /*
      * Remove some existing annotations which are no longer required.
@@ -507,6 +691,7 @@ func (a *ingressAnnotator) AddAnnotations(
         crNameKey,
         consentKey,
         protocolKey,
+        idTokenKey,
     }
 
     for _, field := range fields {
@@ -535,7 +720,9 @@ func (a *ingressAnnotator) InjectDecoder(d *admission.Decoder) error {
  */
 
 func (a *ingressAnnotator) GetEndpoints(
-                                discoveryUrl string) (*Endpoints, error) {
+                    logger *LogInfo, discoveryUrl string) (*Endpoints, error) {
+
+    logger.Log(5, "Retrieving the Verify endpoint.")
 
     /*
      * Construct the request.
@@ -562,9 +749,8 @@ func (a *ingressAnnotator) GetEndpoints(
     }
 
     if response.StatusCode != http.StatusOK {
-
-        a.log.Info("Failed to retrieve the endpoints.", 
-                        "URL",    discoveryUrl,
+        logger.Log(0, "Failed to retrieve the endpoints.", 
+                        "url",    discoveryUrl,
                         "status", response.StatusCode,
                         "body",   response.Body)
 
@@ -585,6 +771,8 @@ func (a *ingressAnnotator) GetEndpoints(
         return nil, err
     }
 
+    logger.Log(7, "Located the verify endpoints.", "endpoints", endpoints)
+
     return &endpoints, nil
 }
 
@@ -595,24 +783,31 @@ func (a *ingressAnnotator) GetEndpoints(
  */
 
 func (a *ingressAnnotator) GetAccessToken(
+                                    logger   *LogInfo,
                                     tokenUrl string,
                                     secret   *apiv1.Secret) (string, error) {
+
+    logger.Log(5, "Retrieving the access token for the client.", 
+                        "token.url", tokenUrl, "secret", secret.Name)
 
     /*
      * Work out the client ID and secret to be used.
      */
 
-    clientId, err := a.GetSecretData(secret, clientIdKey)
+    clientId, err := GetSecretData(secret, clientIdKey)
 
     if err != nil {
         return "", err
     }
 
-    clientSecret, err := a.GetSecretData(secret, clientSecretKey)
+    clientSecret, err := GetSecretData(secret, clientSecretKey)
 
     if err != nil {
         return "", err
     }
+
+    logger.Log(7, "Located the client ID and secret.", "client.id", clientId,
+                    "secret", "XXXXXX")
 
     /*
      * Set up the access token request.
@@ -647,9 +842,8 @@ func (a *ingressAnnotator) GetAccessToken(
     }
 
     if response.StatusCode != http.StatusOK {
-
-        a.log.Info("Failed to retrieve an access token.", 
-                        "URL",    tokenUrl,
+        logger.Log(0, "Failed to retrieve an access token.", 
+                        "url",    tokenUrl,
                         "status", response.StatusCode,
                         "body",   response.Body)
 
@@ -657,6 +851,8 @@ func (a *ingressAnnotator) GetAccessToken(
                         fmt.Sprintf("An unexpected response was received: %d", 
                         response.StatusCode))
     }
+
+    logger.Log(7, "Successfully retrieve the access token from Verify.")
 
     /*
      * Pull the token out of the response.
@@ -685,6 +881,7 @@ func (a *ingressAnnotator) GetAccessToken(
  */
 
 func (a *ingressAnnotator) RegisterWithVerify(
+                            logger            *LogInfo,
                             cr                *ibmv1.IBMSecurityVerify,
                             ingress           *netv1.Ingress,
                             discoveryEndpoint string,
@@ -692,6 +889,11 @@ func (a *ingressAnnotator) RegisterWithVerify(
                             appUrl            string,
                             registrationUrl   string,
                             accessToken       string) (*apiv1.Secret, error) {
+
+    logger.Log(5, "Registering the application with Verify.", 
+                "discovery", discoveryEndpoint, 
+                "application.url", appUrl, "registration.url", registrationUrl)
+
     /*
      * Work out whether a consent action has been supplied.
      */
@@ -727,7 +929,7 @@ func (a *ingressAnnotator) RegisterWithVerify(
         RedirectUris     []string `json:"redirect_uris"`
         ConsentAction    string   `json:"consent_action"`
         AllUsersEntitled bool     `json:"all_users_entitled"`
-        LoginUrl         string   `json:"initiate_login_uri"`
+        LoginUrl         string   `json:"initiate_login_uri,omitempty"`
         EnforcePkce      bool     `json:"enforce_pkce"`
     }
 
@@ -741,12 +943,12 @@ func (a *ingressAnnotator) RegisterWithVerify(
         for _, rule := range ingress.Spec.Rules {
             if protocol == "http" || protocol == "both" {
                 redirectUris = append(redirectUris, 
-                        fmt.Sprintf("http://%s%s", rule.Host, cr.Spec.AuthPath))
+                        fmt.Sprintf("http://%s%s", rule.Host, cr.Spec.SsoPath))
             }
 
             if protocol == "https" || protocol == "both" {
                 redirectUris = append(redirectUris, 
-                    fmt.Sprintf("https://%s%s", rule.Host, cr.Spec.AuthPath))
+                    fmt.Sprintf("https://%s%s", rule.Host, cr.Spec.SsoPath))
             }
         }
     }
@@ -768,6 +970,8 @@ func (a *ingressAnnotator) RegisterWithVerify(
 
     json.NewEncoder(payloadBuf).Encode(body)
 
+    logger.Log(6, "Sending the request for the registration.", "body", body)
+
     /*
      * Set up the request.
      */
@@ -778,7 +982,8 @@ func (a *ingressAnnotator) RegisterWithVerify(
         return nil, err
     }
 
-    request.Header.Add("Accept", "application/json")
+    request.Header.Set("Content-Type", "application/json")
+    request.Header.Set("Accept", "application/json")
     request.Header.Set("Authorization", "Bearer " + accessToken)
 
     /*
@@ -794,8 +999,8 @@ func (a *ingressAnnotator) RegisterWithVerify(
     }
 
     if response.StatusCode != http.StatusOK {
-        a.log.Info("Failed to register the client.", 
-                        "URL",    registrationUrl,
+        logger.Log(0, "Failed to register the client.", 
+                        "url",    registrationUrl,
                         "status", response.StatusCode,
                         "body",   response.Body)
 
@@ -821,6 +1026,8 @@ func (a *ingressAnnotator) RegisterWithVerify(
         return nil, err
     }
 
+    logger.Log(5, "Successfully registered the application.")
+
     /*
      * Create the secret.
      */
@@ -844,6 +1051,9 @@ func (a *ingressAnnotator) RegisterWithVerify(
         },
     }
 
+    logger.Log(6, "Creating the secret for the application.", 
+                        "name", secretName)
+
     err = a.client.Create(context.TODO(), secret)
 
     if err != nil {
@@ -851,25 +1061,6 @@ func (a *ingressAnnotator) RegisterWithVerify(
     }
 
     return secret, nil
-}
-
-/*****************************************************************************/
-
-/*
- * Retrieve the base64 decoded piece of data from the supplied secret.
- */
-
-func (a *ingressAnnotator) GetSecretData(
-                            secret *apiv1.Secret, name string) (string, error) {
-    value, ok := secret.Data[name]
-
-    if !ok {
-        return "", errors.New(
-                fmt.Sprintf("The field, %s, is not available in the " +
-                    "secret: %s", name, secret.Name))
-    }
-
-    return strings.TrimSuffix(string(value), "\n"), nil
 }
 
 /*****************************************************************************/

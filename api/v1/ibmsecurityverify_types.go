@@ -15,7 +15,10 @@ import (
 // IBMSecurityVerifySpec defines the desired state of IBMSecurityVerify.
 type IBMSecurityVerifySpec struct {
     // The name of the secret which contains the IBM Security Verify
-    // client credentials.
+    // client credentials.  If the secret is not in the same namespace as the
+    // custom resource the secret name should be prefixed with the name of the
+    // namespace in which the secret resides, for example:
+    // 'default/ibm-security-verify-client'.
     ClientSecret string `json:"clientSecret"`
 
     //+kubebuilder:validation:Minimum=0
@@ -27,12 +30,12 @@ type IBMSecurityVerifySpec struct {
     //+kubebuilder:default=/verify-sso
     // The URL path, within the Ingress service, for the Verify SSO server.
     // +optional
-    AuthPath string `json:"authPath"`
+    SsoPath string `json:"ssoPath"`
 
     // The URL to which a client will be redirected upon logout.    If no
     // logout redirect URL is specified the server will not provide a mechanism
     // to logout the user.  The logout URI is constructed by appending the
-    // '/logout' URL segment to the configured 'AuthPath'.
+    // '/logout' URL segment to the configured 'ssoPath'.
     // +optional
     LogoutRedirectURL string `json:"logoutRedirectURL"`
 }

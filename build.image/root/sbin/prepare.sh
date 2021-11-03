@@ -122,17 +122,17 @@ The following make targets can be used:
         This target will display general help information on all targets
         contained within the Makefile.
 
-    build:
-        This target should be executed to generate a new build.
+    docker-all:
+        This target will build the main controller image and push the image
+        to the remote docker repository.
 
-    docker-build:
-        This target will build the main controller image.
+    bundle-all:
+        This target is used to generate the OLM bundle and push the image to
+        the remote docker repository.
 
-    bundle:
-        This target is used to generate the OLM bundle.
-
-    bundle-build:
-        This target will build the OLM bundle image.
+    catalog-all:
+        This target is used to generate the operator index and catalog, and
+        push this to the remote docker repository.
 
 In order to deploy the image, using OLM, to a Kubernetes environment:
     1. operator-sdk olm install
@@ -141,6 +141,14 @@ In order to deploy the image, using OLM, to a Kubernetes environment:
 In order to cleanup the Kubernetes environment:
     1. operator-sdk cleanup ibm-security-verify-operator
     2. operator-sdk olm uninstall
+
+In order to make the operator catalog available in an OpenShift environment:
+    1. make catalog-run
+    2. install the operator using the OpenShift console
+
+In order to clean up the operator catalog from an OpenShift environment:
+    1. uninstall the operator using the OpenShift console
+    2. make catalog-cleanup
 
 EOF
 
