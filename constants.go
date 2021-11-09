@@ -17,6 +17,7 @@ const consentKey           = "verify.ibm.com/consent.action"
 const protocolKey          = "verify.ibm.com/protocol"
 const idTokenKey           = "verify.ibm.com/idtoken.hdr"
 const debugLevelKey        = "verify.ibm.com/debug.level"
+const entitledGroupKey     = "verify.ibm.com/entitled.group"
 
 /*
  * Secret keys.

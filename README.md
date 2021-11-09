@@ -91,7 +91,14 @@ Before the operator can be used it must be configured with information which is 
 
 ### Secrets
 
-A Kubernetes secret is used by the operator controller to store the API access credential information required when accessing IBM Security Verify.  Information on how to create an API access credential is available in the official IBM Security Verify documentation: [https://www.ibm.com/docs/en/security-verify?topic=access-managing-api-clients](https://www.ibm.com/docs/en/security-verify?topic=access-managing-api-clients).  The API access credential must, at a minimum, have the 'Manage OIDC client registration dynamically' entitlement.
+A Kubernetes secret is used by the operator controller to store the API access credential information required when accessing IBM Security Verify.  Information on how to create an API access credential is available in the official IBM Security Verify documentation: [https://www.ibm.com/docs/en/security-verify?topic=access-managing-api-clients](https://www.ibm.com/docs/en/security-verify?topic=access-managing-api-clients).  
+
+The API access credential must, at a minimum, have the the following entitlements:
+
+* Manage application entitlements
+* Manage application lifecycle
+* Manage OIDC client registration dynamically
+* Read users and groups
 
 #### Format 
 
@@ -195,6 +202,7 @@ When registering the application the operator will use the following fields:
 |Grant types|Authorization code 
 |User consent|The user consent field, as obtained from the corresponding annotation in the Ingress definition.
 |Redirect URIs|The valid redirect URL's, obtained from the `Host` fields within the rules of the Ingress definition.
+|Entitlements|The name of the group, as obtained from the corresponding annotation in the Ingress definition, which will be entitled to use this application.  If no group is specified all users will be entitled.
 
 As a result of this registration process a new application will be defined in IBM Security Verify and the credential information for this application will be stored in a new secret in the OpenShift environment.
 
@@ -261,6 +269,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 |verify.ibm.com/consent.action|This optional annotation is used during the registration of the Application with IBM Security Verify and indicates the user consent setting.  The valid values are: ‘never\_prompt’ or ‘always\_prompt’| No
 |verify.ibm.com/protocol|The protocol which is used when accessing this ingress resource.  This will be used in the construction of the redirect URI's which are registered with IBM Security Verify.  The valid options are: `http`,`https`,`both`.  If no value is specified a default value of `https` will be used.| No
 |verify.ibm.com/idtoken.hdr|By default the operator will insert the user name into the HTTP stream in the `X_REMOTE_USER` header.  The 'verify.ibm.com/idtoken.hdr' annotation can be used to specify the HTTP header into which the entire identity token will be inserted.| No
+|verif.ibm.com/entitled.group|The name of the group which will be entitled to use this application.  If no group is specified all users will be entitled to use this application.|No
 |verify.ibm.com/debug.level|This annotation controls the amount of debug information which will be sent to the console of the operator controller.  The larger the number the greater the amount of information which is sent to the console.  The debug level should be set as a number between 0 and 9 (default: 0).| No
 
 The following example (testapp.yaml) shows an Ingress definition:
@@ -278,6 +287,7 @@ metadata:
     verify.ibm.com/consent.action: "always_prompt"
     verify.ibm.com/protocol: "https"
     verify.ibm.com/idtoken.hdr: "X-Identity"
+    verify.ibm.com/entitled.group: "developer"
 spec:
   rules:
   - host: my-nginx-ingress.apps.acme.ibm.com

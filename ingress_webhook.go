@@ -14,6 +14,7 @@ import (
     "fmt"
     "net/http"
     "net/url"
+    "path"
     "strconv"
     "strings"
 
@@ -921,6 +922,24 @@ func (a *ingressAnnotator) RegisterWithVerify(
     }
 
     /*
+     * Determine the identity of the group which is entitled to use this
+     * application.
+     */
+
+    entitledGroup, err := a.GetEntitledGroup(
+                            logger, ingress, discoveryEndpoint, accessToken)
+
+    if err != nil {
+        return nil, err
+    }
+
+    allUsersEntitled := false
+
+    if entitledGroup == "" {
+        allUsersEntitled = true
+    }
+
+    /*
      * Construct the request body.
      */
 
@@ -961,7 +980,7 @@ func (a *ingressAnnotator) RegisterWithVerify(
         ClientName:       appName,
         RedirectUris:     redirectUris,
         ConsentAction:    consentAction,
-        AllUsersEntitled: true,
+        AllUsersEntitled: allUsersEntitled,
         LoginUrl:         appUrl,
         EnforcePkce:      false,
     }
@@ -1060,7 +1079,351 @@ func (a *ingressAnnotator) RegisterWithVerify(
         return nil, err
     }
 
+    /*
+     * Update the application entitlements.
+     */
+
+    if entitledGroup != "" {
+        err := a.UpdateEntitlements(
+                logger, discoveryEndpoint, accessToken, appName, entitledGroup)
+
+        if err != nil {
+            return nil, err
+        }
+
+    }
+
     return secret, nil
+}
+
+/*****************************************************************************/
+
+/*
+ * Get the identity of the group which is entitled to use this application.
+ */
+
+func (a *ingressAnnotator) GetEntitledGroup(
+                            logger            *LogInfo,
+                            ingress           *netv1.Ingress,
+                            discoveryEndpoint string,
+                            accessToken       string) (string, error) {
+
+    logger.Log(6, "Checking to see if an entitled group was specified.")
+
+    /*
+     * Work out whether a group has been supplied.
+     */
+
+    groupName, found := ingress.Annotations[entitledGroupKey]
+
+    if !found {
+        logger.Log(5, "An entitled group was not specified.")
+
+        return "", nil
+    }
+
+    logger.Log(5, "An entitled group was specified.", "group.name", groupName)
+
+    /*
+     * A group name has been specified and so we now need to convert this
+     * into a group id.  We use the https://{tenant_url}/v2.0/Groups API
+     * for this.
+     */
+
+    /*
+     * Work out the tenant base URL from the discovery endpoint.  We are
+     * interested in the protocol designator and name from the endpoint
+     * URL.
+     */
+
+    url, err := url.Parse(discoveryEndpoint)
+
+    if err != nil {
+        return "", err
+    }
+
+    groupUrl := fmt.Sprintf("%s://%s/v2.0/Groups?" +
+                    "filter=displayName%%20eq%%20%%22%s%%22&attributes=id",
+                    url.Scheme, url.Host, groupName)
+
+    logger.Log(6, "Attempting to retrieve the group ID for the entitled group.",
+                "url",        groupUrl,
+                "group.name", groupName)
+
+    /*
+     * Set up the request.
+     */
+
+    request, err := http.NewRequest("GET", groupUrl, nil)
+
+    if err != nil {
+        return "", err
+    }
+
+    request.Header.Set("Accept", "application/scim+json")
+    request.Header.Set("Authorization", "Bearer " + accessToken)
+
+    /*
+     * Make the request.
+     */
+
+    client := &http.Client{}
+
+    response, err := client.Do(request)
+
+    if err != nil {
+        return "", err
+    }
+
+    if response.StatusCode != http.StatusOK {
+        logger.Log(0, "Failed to retrieve the group identifier.", 
+                        "url",         groupUrl,
+                        "group.name",  groupName,
+                        "http.status", response.StatusCode)
+
+        return "", errors.New(
+                    fmt.Sprintf("An unexpected response was received when " +
+                        "retrieving the group from IBM Security Verify: %d", 
+                        response.StatusCode))
+    }
+
+    /*
+     * Convert the response data.
+     */
+
+    type GroupResources struct {
+        Id string `json:"id"`
+    }
+
+    type GroupResponse struct {
+        TotalResults int              `json:"totalResults"`
+        Resources    []GroupResources `json:"Resources"`
+    }
+
+    var jsonData GroupResponse
+
+    err = json.NewDecoder(response.Body).Decode(&jsonData)
+
+    if err != nil {
+        return "", err
+    }
+
+    /*
+     * Check that the response data is correct.
+     */
+
+    if jsonData.TotalResults != 1 || len(jsonData.Resources) != 1 {
+        return "", errors.New(
+                    fmt.Sprintf("An unexpected number of group identifiers " +
+                        "was located in IBM Security Verify: %d (group: %s)", 
+                        jsonData.TotalResults, groupName))
+    }
+
+    logger.Log(6, "Located the group identifier.", 
+                        "group.name", groupName,
+                        "group.id", jsonData.Resources[0].Id)
+
+    return jsonData.Resources[0].Id, nil
+}
+
+/*****************************************************************************/
+
+/*
+ * Update the entitlements for the application.
+ */
+
+func (a *ingressAnnotator) UpdateEntitlements(
+                            logger            *LogInfo,
+                            discoveryEndpoint string,
+                            accessToken       string,
+                            appName           string,
+                            groupId           string) (error) {
+
+    /*
+     * Work out the tenant base URL from the discovery endpoint.  We are
+     * interested in the protocol designator and name from the endpoint
+     * URL.
+     */
+
+    url, err := url.Parse(discoveryEndpoint)
+
+    if err != nil {
+        return err
+    }
+
+    /*
+     * The first step is to work out the application identifier for our
+     * application.  The only way to do this is to query Verify for all
+     * applications which are owned by our user and then look for a matching
+     * application name.
+     */
+
+    applicationsUrl := fmt.Sprintf("%s://%s/v1.0/applications" +
+                    "?search=%%22q%%3D%s%%22&pagination=0&limit=0",
+                    url.Scheme, url.Host, appName)
+
+    logger.Log(6, 
+        "Attempting to retrieve the application ID for the application.",
+                "application", appName,
+                "url",         applicationsUrl)
+
+    /*
+     * Set up the request.
+     */
+
+    request, err := http.NewRequest("GET", applicationsUrl, nil)
+
+    if err != nil {
+        return err
+    }
+
+    request.Header.Set("Accept", "application/json")
+    request.Header.Set("Authorization", "Bearer " + accessToken)
+
+    /*
+     * Make the request.
+     */
+
+    client := &http.Client{}
+
+    response, err := client.Do(request)
+
+    if err != nil {
+        return err
+    }
+
+    if response.StatusCode != http.StatusOK {
+        logger.Log(0, "Failed to retrieve the application ID.", 
+                        "url",         applicationsUrl,
+                        "app.name",    appName,
+                        "http.status", response.StatusCode)
+
+        return errors.New(
+            fmt.Sprintf("An unexpected response was received when " +
+                "retrieving the application ID from IBM Security Verify: %d", 
+                response.StatusCode))
+    }
+
+    /*
+     * Convert the response data.
+     */
+
+    type Self struct {
+        Url string `json:"href"`
+    }
+
+    type Links struct {
+        Self Self `json:"self"`
+    }
+
+    type Applications struct {
+        Name  string `json:"name"`
+        Links Links  `json:"_links"`
+    }
+
+    type Embedded struct {
+        Applications []Applications `json:"applications"`
+    }
+
+    type AppResponse struct {
+        Embedded Embedded `json:"_embedded"`
+    }
+
+    var jsonData AppResponse
+
+    err = json.NewDecoder(response.Body).Decode(&jsonData)
+
+    if err != nil {
+        return err
+    }
+
+    logger.Log(7, "Received a list of applications from IBM Security Verify.",
+                "applications", jsonData)
+
+    /*
+     * Look for the application within the list of responded applications.
+     */
+
+    applicationId := ""
+
+    for _, app := range jsonData.Embedded.Applications {
+        if app.Name == appName {
+            applicationId = path.Base(app.Links.Self.Url)
+            break
+        }
+    }
+
+    if applicationId == "" {
+        return errors.New(
+            fmt.Sprintf("The registered application could not be located " +
+                        "in IBM Security Verify: %s", appName))
+    }
+
+    logger.Log(6, "Located the application identifier.", 
+                        "app.name", appName,
+                        "app.id",   applicationId)
+
+    /*
+     * Now that we have the application ID we can add the entitlement to the
+     * application.
+     */
+
+    entitlementsUrl := fmt.Sprintf(
+                    "%s://%s/v1.0/owner/applications/%s/entitlements",
+                    url.Scheme, url.Host, applicationId)
+
+    /*
+     * Construct the request body.  The JSON is pretty static and so we create
+     * the body as a string instead of worrying about JSON structures.
+     */
+
+    body := fmt.Sprintf("{\"additions\":[{\"assignee\":" +
+            "{\"subjectType\":\"group\",\"subjectId\":\"%s\"}}]}", groupId)
+
+    /*
+     * Set up the request.
+     */
+
+    logger.Log(6, "Sending an entitlements update request.", 
+                        "url",  entitlementsUrl,
+                        "body", body)
+
+    request, err = http.NewRequest(
+                        "POST", entitlementsUrl, strings.NewReader(body))
+
+    if err != nil {
+        return err
+    }
+
+    request.Header.Set("Content-Type", "application/json")
+    request.Header.Set("Accept", "application/json")
+    request.Header.Set("Authorization", "Bearer " + accessToken)
+
+    /*
+     * Make the request.
+     */
+
+    client = &http.Client{}
+
+    response, err = client.Do(request)
+
+    if err != nil {
+        return err
+    }
+
+    if response.StatusCode != http.StatusOK {
+        logger.Log(0, "Failed to update the application entitlements.", 
+                        "url",    entitlementsUrl,
+                        "status", response.StatusCode)
+
+        return errors.New(fmt.Sprintf("An unexpected response was received " +
+                "when updating the application entitlements: %d", 
+                        response.StatusCode))
+    }
+
+    logger.Log(7, "Successfully updated the application entitlements.")
+
+    return nil
 }
 
 /*****************************************************************************/
