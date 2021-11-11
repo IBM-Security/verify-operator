@@ -12,7 +12,7 @@ spec:
   # custom resource the secret name should be prefixed with the name of the
   # namespace in which the secret resides, for example:
   #    default/ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47
-  clientSecret: ibm-security-verify-client-1cbfe647-9e5f-4d99-8e05-8ec1c862eb47 
+  clientSecret: --secret--
 
   # The lifetime, in seconds, for an authenticated session.  
   sessionLifetime: 3600

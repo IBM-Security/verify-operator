@@ -30,6 +30,7 @@ kind: Service
 
 metadata:
   name: demoapp
+  namespace: default
 
 spec:
   ports:
