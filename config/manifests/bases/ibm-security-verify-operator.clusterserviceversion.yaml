@@ -29,7 +29,7 @@ spec:
   description: |+
     [IBM Security Verify](https://www.ibm.com/products/verify-saas) is an Identity-as-a-Service platform that allows IT, security and business leaders to protect their digital users, assets and data in a hybrid, multi-cloud world by enabling technical agility and operational efficiency. IBM Security Verify SaaS provides single sign-on (SSO), multi-factor authentication (MFA), AI-powered context for risk-based authentication for adaptive access decisions, user management, access recertification campaigns and identity analytics.
 
-    As part of using Red Hat OpenShift, you are entitled to Verify SaaS SSO for unlimited apps and users.  A new Verify SaaS SSO tenant can be created using the following link: [https://www.ibm.com/account/reg/us-en/signup?formid=urx-51255](https://www.ibm.com/account/reg/us-en/signup?formid=urx-51255).
+    As part of using Red Hat OpenShift, you are entitled to Verify SaaS SSO for unlimited apps and users.  If you do not already have a Verify SaaS SSO tenant a new one can be [created](https://www.ibm.com/account/reg/us-en/signup?formid=urx-51255).
 
     For a detailed description of IBM Security Verify refer to the [Official documentation](https://www.ibm.com/docs/en/security-verify).
 
