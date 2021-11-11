@@ -60,10 +60,50 @@ Once the CatalogSource object has been created you will be able to view and inst
 
 # RedHat Operator Certification
 
-> This section still needs to be written.
+Certification projects are managed through the [RedHat Partner Connect Portal](https://connect.redhat.com/manage/projects).  Instructions for certifying the operator bundle can be found in the [Partner Guide](https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/certify-your-operator/certify-your-operator-bundle-image).
 
-A good description of the RedHat Operator Certification process can be found at:
+> NB: It looks like the partner guide is out of date and incorrect.  It states that you also need to certify the operator image, but this doesn't look to be actually required.
 
-* [https://cloud.redhat.com/blog/red-hat-openshift-operator-certification](https://cloud.redhat.com/blog/red-hat-openshift-operator-certification).
-* [https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/](https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/)
+At a high level, to certify the operator, you need to:
 
+1. Create a 'certification project' for the operator bundle using the RedHat Partner Connect Portal;
+2. Provide the details of the operator on the 'Settings' tab;
+3. Test the operator and submit a pull request.
+
+## Image Testing
+
+As a part of the certification process you need to test your image.  You can do this locally, or by using the hosted pipeline.  Both mechanisms are not without problems.  
+
+### Local Testing
+
+Instructions on how to run the tests locally are available at: [https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/ci-pipeline.md](https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/ci-pipeline.md)
+
+I was never able to successfully run the tests in my local OpenShift environment, although after a lot of trial and error I was able to make some limited progress. Some points to note about running the tests locally:
+
+1. You need to create a default storage class (type: no-provisioner);
+2. You need to create a new persistent volume using the yaml included below;
+3. You need to modify the `templates/workspace-template.yaml` file to reference the new PV: `volumeName: pv0001`
+
+```yaml
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: pv0001
+spec:
+  capacity:
+    storage: 50Gi
+  nfs:
+    server: 10.22.82.15
+    path: /data/certify
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Recycle
+  storageClassName: manual
+  volumeMode: Filesystem
+```
+
+### Hosted Pipeline
+
+Instructions on how to run the tests using the hosted pipeline are available at: [https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/hosted-pipeline.md](https://github.com/redhat-openshift-ecosystem/certification-releases/blob/main/4.9/ga/hosted-pipeline.md).  
+
+Unfortunately the hosted pipeline provides no information on why a test run failed - although it should be adding this information to the project in the RedHat Partner Connect Portal ('Test results' tab).  A support ticket has been raised with the RedHat support organisation to determine what is going wrong.
