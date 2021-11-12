@@ -31,7 +31,7 @@ USER 65532:65532
 LABEL name="IBM Security Verify Operator" \
       vendor="IBM" \
       version="v--version--" \
-      release="1" \
+      release="0" \
       summary="This operator adds IBM Security Verify authentication support to your Ingress services." \
       description="The IBM Security Verify operator can consistently enforce policy-driven security by using the Ingress networking capability of OpenShift, in conjunction with the Nginx Ingress operator. With this approach, you can enforce authentication and authorization policies for all of the applications in your cluster at the same time, without ever changing your application code. You can also dynamically register your application to start protecting them centrally from the cloud via IBM Security Verify SaaS."
 
