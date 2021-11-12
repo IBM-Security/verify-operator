@@ -60,19 +60,21 @@ Once the CatalogSource object has been created you will be able to view and inst
 
 # RedHat Operator Certification
 
-Certification projects are managed through the [RedHat Partner Connect Portal](https://connect.redhat.com/manage/projects).  Instructions for certifying the operator bundle can be found in the [Partner Guide](https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/certify-your-operator/certify-your-operator-bundle-image).
-
-> NB: It looks like the partner guide is out of date and incorrect.  It states that you also need to certify the operator image, but this doesn't look to be actually required.
+Certification projects are managed through the [RedHat Partner Connect Portal](https://connect.redhat.com/manage/projects).  
 
 At a high level, to certify the operator, you need to:
 
-1. Create a 'certification project' for the operator bundle using the RedHat Partner Connect Portal;
-2. Provide the details of the operator on the 'Settings' tab;
-3. Test the operator and submit a pull request.
 
-## Image Testing
+1. Create a 'certification project' for the operator using the RedHat Partner Connect Portal ([instructions](https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/certify-your-operator/creating-an-operator-project));
+	2. Provide the details of the operator on the 'Settings' tab;
+	3. Scan the new image using the 'Scan new image' button on the 'Images' tab;
+2. Create a 'certification project' for the operator bundle using the RedHat Partner Connect Portal ([instructions](https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/certify-your-operator/certify-your-operator-bundle-image));
+	3. Provide the details of the operator on the 'Settings' tab;
+	4. Test the operator and submit a pull request.
 
-As a part of the certification process you need to test your image.  You can do this locally, or by using the hosted pipeline.  Both mechanisms are not without problems.  
+## Bundle Testing
+
+As a part of the certification process you need to test your bundle.  You can do this locally, or by using the hosted pipeline.  Both mechanisms are not without problems.  
 
 ### Local Testing
 
