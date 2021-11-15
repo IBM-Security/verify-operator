@@ -70,7 +70,9 @@ At a high level, to certify the operator, you need to:
 	3. Scan the new image using the 'Scan new image' button on the 'Images' tab;
 2. Create a 'certification project' for the operator bundle using the RedHat Partner Connect Portal ([instructions](https://redhat-connect.gitbook.io/partner-guide-for-red-hat-openshift-and-container/certify-your-operator/certify-your-operator-bundle-image));
 	3. Provide the details of the operator on the 'Settings' tab;
-	4. Test the operator and submit a pull request.
+	4. Test the operator and submit a pull request.  
+
+	> It is important that in the pull request the images contained within the cluster service version file are updated, replacing the tag name with the corresponding sha256 digest.
 
 ## Bundle Testing
 
