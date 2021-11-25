@@ -423,7 +423,7 @@ func (server *OidcServer) authenticate(w http.ResponseWriter, r *http.Request) {
 
 func (server *OidcServer) login(w http.ResponseWriter, r *http.Request) {
 
-    origUrl := r.URL.Query().Get(urlArg)
+    origUrl := server.normaliseUrl(r.URL.Query().Get(urlArg), r)
 
     /*
      * Generate a uuid which will be used as the state value.
@@ -612,7 +612,7 @@ func (server *OidcServer) getClient(logger *LogInfo, r *http.Request) (
          * Retrieve the URL root from the request.
          */
 
-        urlRoot := r.Header.Get(urlRootHdr)
+        urlRoot := server.normaliseUrl(r.Header.Get(urlRootHdr), r)
 
         if urlRoot == "" {
             server.clientLock.Unlock()
@@ -830,6 +830,36 @@ func (server *OidcServer) createLogger(
     }
 
     return
+}
+
+/*****************************************************************************/
+
+/*
+ * Validate the provided URL against the X-Forwarded-Proto header.  If the 
+ * protocol part of the URL doesn't match the X-Forwarded-Proto we change the 
+ * URL to match the X-Forwarded-Proto.
+ */
+
+func (server *OidcServer) normaliseUrl(url string, r *http.Request) (string) {
+
+    if url == "" {
+        return url
+    }
+
+    normalUrl := ""
+    protocol  := r.Header.Get("X-Forwarded-Proto")
+
+    if protocol != "" {
+        components := strings.SplitN(url, ":", 2)
+
+        if len(components) == 2 {
+            normalUrl = protocol + ":" + components[1]
+        }
+    } else {
+        normalUrl = url
+    }
+
+    return normalUrl
 }
 
 /*****************************************************************************/
