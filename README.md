@@ -33,7 +33,7 @@ The are a number of prerequisites which must be met before the Verify operator c
 
 1. The operator supports the [RedHat OpenShift](https://www.redhat.com/en/technologies/cloud-computing/openshift) containerized environment and does not currently support other Kubernetes environments.  
 2. The RedHat certified [Nginx Ingress operator](https://catalog.redhat.com/software/operators/detail/5e9874913f398525a0ceb00d) must be installed and the applications which are to be protected by IBM Security Verify must be accessed by the service which is provided by the Ingress controller.  Please note that this operator is different to the standard Kubernetes Nginx Ingress operator.  
-3. An IBM Security Verify SaaS tenant is required. Those that make use of the IBM Security Verify operator can use [Verify SaaS SSO](https://www.ibm.com/account/reg/us-en/signup?formid=urx-51255) if they do not already have access to a tenant.  An IBM Security Verify SaaS tenant is required to provide authentication and adaptive access capabilities.  
+3. An IBM Security Verify SaaS tenant is required. Those that make use of the IBM Security Verify operator can use [Verify SaaS SSO](https://www.ibm.com/account/reg/signup?formid=urx-51255) if they do not already have access to a tenant.  An IBM Security Verify SaaS tenant is required to provide authentication and adaptive access capabilities.  
 
 ### Restrictions
 
