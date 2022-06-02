@@ -998,7 +998,8 @@ func (a *ingressAnnotator) RegisterWithVerify(
         return nil, err
     }
 
-    if response.StatusCode != http.StatusOK {
+    if response.StatusCode != http.StatusOK && 
+                    response.StatusCode != http.StatusCreated {
         logger.Log(0, "Failed to register the client.", 
                         "url",    registrationUrl,
                         "status", response.StatusCode,

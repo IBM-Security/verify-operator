@@ -267,7 +267,7 @@ When creating an Ingress resource a few additional metadata annotations must be 
 The following example (testapp.yaml) shows an Ingress definition:
 
 ```yaml
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 
 metadata:
@@ -285,9 +285,12 @@ spec:
     http:
       paths:
       - path: /testapp
+        pathType: Prefix
         backend:
-          serviceName: testapp
-          servicePort: 8443
+          service:
+            name: testapp
+            port:
+              number: 8443
 ```
 
 The following command can be used to create the Ingress definition from this file:

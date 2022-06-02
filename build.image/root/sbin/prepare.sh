@@ -32,7 +32,7 @@ EOT
 
 yum -y install make git rsync zip
 
-yum module -y install go-toolset
+yum -y install golang-1.16.7-1.module_el8.5.0+891+69fdb1de.x86_64
 
 #
 # Install kubectl.
