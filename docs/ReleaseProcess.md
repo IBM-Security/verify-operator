@@ -23,18 +23,18 @@ After the release has been created the GitHub actions workflow ([https://github.
 
 This build process will include:
 
-* publishing the generated docker images to DockerHub;
+* publishing the generated docker images to IBM Cloud Repository;
 * adding the bundle zip to the release artifacts in GitHub.
 
 # Testing on RedHat OpenShift
 
-In order to test the environment on RedHat Openshift the `ibmcom/verify-operator` and `ibmcom/verify-operator-build` images on DockerHub must be up to date.  You then need to:
+In order to test the environment on RedHat Openshift the `icr.io/isv-saas/verify-operator` and `icr.io/isv-saas/verify-operator-build` images on ICR must be up to date.  You then need to:
 
 * Create a catalog image.  This will require a public Docker repository.  The command to create the catalog image is similar to: 
 
 ```shell
 opm index add -u docker \
-  --bundles docker.io/ibmcom/verify-operator-bundle:1.1.3 \
+  --bundles icr.io/isv-saas/verify-operator-bundle:1.1.3 \
   --from-index quay.io/operatorhubio/catalog:latest \
   --tag docker.io/isamdev/verify-operator-catalog:1.1.3
 ```
