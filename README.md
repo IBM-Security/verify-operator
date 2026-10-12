@@ -66,6 +66,8 @@ Kubernetes operators are very useful tools that provide lifecycle management cap
 
 The information provided by the [RedHat Operator Catalog](https://catalog.redhat.com/software/operators/search) allows the Operator Lifecycle Manager (OLM) to manage the operator throughout its complete lifecycle. This includes the initial installation and subscription to the RedHat Operator Catalog such that updates to the operator can be performed automatically.
 
+> **Warning:** The IBM Security Verify operator is installed at the cluster level.  This means that all users within the cluster will be able to use the credential information which is contained within any IBMSecurityVerify custom resource that is created.
+
 ### Procedure
 
 To install the IBM Security Verify operator from the RedHat Operator Catalog:
